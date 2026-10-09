@@ -1,0 +1,409 @@
+<title>Obertshausen Shift Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one narrow column (max 680px) of a time-clock card; sticky header, bottom tab bar on phones.
+   Night-shift palette: concrete grey paper / navy ink by day, blue-black by night; amber = bonus money. */
+:root {
+  --bg: #e7eaed;
+  --paper: #fbfcfd;
+  --paper-2: #f1f3f5;
+  --ink: #142231;
+  --muted: #566372;
+  --line: #cfd5db;
+  --accent: #9a5c00;        /* amber for text on paper (4.9:1) */
+  --base: #2f6db5;          /* chart/strip: base pay */
+  --bonus: #c77700;         /* chart/strip: bonus */
+  --nightband: #dfe3f0;     /* 23:00–06:00 shading */
+  --good: #13773a;
+  --good-bg: #e3f3e8;
+  --bad: #b3261e;
+  --bad-bg: #fbe7e5;
+  --warn: #8a5300;
+  --warn-bg: #fdf0d8;
+  --focus: #2f6db5;
+  --display: "Big Shoulders Display", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e141b; --paper: #18202a; --paper-2: #1f2934; --ink: #e6ebf0; --muted: #9aa7b4; --line: #2c3845;
+    --accent: #f0b04a; --base: #4d8ad6; --bonus: #c27d0c; --nightband: #222c45;
+    --good: #5fd08a; --good-bg: #173325; --bad: #ff8a80; --bad-bg: #3a1c1c; --warn: #f3c062; --warn-bg: #3a2c12;
+    --focus: #7fb0ff; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e141b; --paper: #18202a; --paper-2: #1f2934; --ink: #e6ebf0; --muted: #9aa7b4; --line: #2c3845;
+  --accent: #f0b04a; --base: #4d8ad6; --bonus: #c27d0c; --nightband: #222c45;
+  --good: #5fd08a; --good-bg: #173325; --bad: #ff8a80; --bad-bg: #3a1c1c; --warn: #f3c062; --warn-bg: #3a2c12;
+  --focus: #7fb0ff; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { background: var(--bg); }
+body { color: var(--ink); font: 15px/1.45 var(--body); padding-inline: 16px; padding-block: 0 96px; }
+.wrap { max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.wrap .wrap { margin: 0; max-width: none; width: 100%; min-width: 0; }
+h1, h2, h3 { font-family: var(--display); font-weight: 800; letter-spacing: .01em; text-wrap: balance; margin: 0; line-height: 1.05; }
+h2 { font-size: 1.6rem; }
+h3 { font-size: 1.2rem; }
+.num, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.small { font-size: .82rem; }
+.label { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* header */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); margin-inline: -16px; padding: 12px 16px 10px; border-bottom: 1px solid var(--line); }
+.top-in { max-width: 680px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+.brand { flex: 1; min-width: 0; }
+.brand h1 { font-size: 1.75rem; }
+.brand p { margin: 2px 0 0; font-size: .78rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sync { font-size: .72rem; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.sync i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
+.sync[data-s="ok"] i { background: var(--good); }
+.sync[data-s="busy"] i { background: var(--accent); }
+.sync[data-s="local"] i { background: var(--bad); }
+.iconbtn { border: 1px solid var(--line); background: var(--paper); border-radius: var(--r); width: 40px; height: 40px; display: grid; place-items: center; cursor: pointer; }
+.iconbtn svg { width: 20px; height: 20px; }
+
+/* tabs */
+.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--paper); border-top: 1px solid var(--line); padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)); }
+.tabs-in { max-width: 680px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.tabs button { border: 0; background: none; padding: 8px 2px; border-radius: var(--r); cursor: pointer; font-weight: 600; font-size: .8rem; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.tabs button svg { width: 20px; height: 20px; }
+.tabs button[aria-selected="true"] { color: var(--ink); background: var(--paper-2); }
+.tabs button[aria-selected="true"] svg { color: var(--accent); }
+
+/* cards and forms */
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.fields .wide { grid-column: 1 / -1; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field > span { font-size: .78rem; font-weight: 600; color: var(--muted); }
+input, select, textarea { width: 100%; border: 1px solid var(--line); background: var(--paper-2); border-radius: var(--r); padding: 10px 11px; min-height: 44px; }
+input.time { font-family: var(--mono); font-size: 1.15rem; letter-spacing: .02em; }
+input:disabled { opacity: .45; }
+textarea { min-height: 96px; font-family: var(--mono); font-size: .85rem; resize: vertical; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 3px 10px; font-family: var(--mono); font-size: .8rem; cursor: pointer; }
+.btnrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn { border: 1px solid var(--line); background: var(--paper-2); border-radius: var(--r); padding: 10px 16px; min-height: 44px; font-weight: 600; cursor: pointer; }
+.btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.btn.danger { color: var(--bad); }
+.btn.danger.armed { background: var(--bad); color: var(--paper); border-color: var(--bad); }
+.msg { min-height: 1.2em; font-size: .85rem; color: var(--muted); margin: 0; }
+.msg.err { color: var(--bad); }
+
+/* live preview */
+.preview { border-top: 1px dashed var(--line); padding-top: 14px; display: flex; flex-direction: column; gap: 12px; }
+.pv-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.pv-gross { font-family: var(--display); font-weight: 800; font-size: 2.6rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.pv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 10px 14px; }
+.pv-grid div { display: flex; flex-direction: column; gap: 1px; }
+.pv-grid b { font-family: var(--mono); font-weight: 500; font-variant-numeric: tabular-nums; }
+.warns { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.warns li { display: flex; gap: 8px; align-items: flex-start; background: var(--warn-bg); color: var(--warn); border-radius: var(--r); padding: 7px 10px; font-size: .85rem; }
+.warns svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+
+/* 36-hour shift strip */
+.strip { position: relative; height: 14px; background: var(--paper-2); border-radius: 3px; overflow: hidden; }
+.strip .nb { position: absolute; top: 0; bottom: 0; background: var(--nightband); }
+.strip .seg { position: absolute; top: 3px; bottom: 3px; }
+.strip .seg.b { background: var(--base); }
+.strip .seg.p { background: var(--bonus); }
+.strip-axis { display: flex; justify-content: space-between; font-family: var(--mono); font-size: .66rem; color: var(--muted); margin-top: 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .76rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 8px; border-radius: 2px; display: inline-block; }
+
+/* shift list */
+.week { display: flex; flex-direction: column; gap: 0; }
+.week-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 0 2px 6px; flex-wrap: wrap; }
+.week-head h3 { font-size: 1.35rem; }
+.week-head .num { font-size: .85rem; color: var(--muted); }
+.rows { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.row { width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--line); padding: 10px 12px; cursor: pointer; display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; }
+.row:first-child { border-top: 0; }
+.row:hover { background: var(--paper-2); }
+.row.editing { background: var(--paper-2); box-shadow: inset 3px 0 0 var(--accent); }
+.row .d { font-weight: 700; font-size: .9rem; line-height: 1.2; }
+.row .d small { display: block; font-weight: 500; color: var(--muted); font-family: var(--mono); font-size: .78rem; }
+.row .mid { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.row .times { font-family: var(--mono); font-size: .9rem; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row .meta { font-family: var(--mono); font-size: .76rem; color: var(--muted); }
+.row .g { text-align: right; font-family: var(--mono); font-weight: 500; font-variant-numeric: tabular-nums; }
+.row .g small { display: block; color: var(--muted); font-size: .72rem; font-weight: 400; }
+.flag { display: inline-flex; align-items: center; gap: 3px; color: var(--warn); font-size: .72rem; font-family: var(--body); font-weight: 600; }
+.flag svg { width: 14px; height: 14px; }
+.status { display: inline-block; font-family: var(--body); font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; padding: 2px 8px; border-radius: 999px; background: var(--paper-2); color: var(--muted); border: 1px solid var(--line); }
+.empty { text-align: center; padding: 28px 16px; color: var(--muted); }
+
+/* summary */
+.seg-ctl { display: inline-grid; grid-auto-flow: column; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--paper); }
+.seg-ctl button { border: 0; background: none; padding: 8px 16px; min-height: 40px; cursor: pointer; font-weight: 600; color: var(--muted); }
+.seg-ctl button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.filterbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.filterbar select { width: auto; min-width: 0; flex: 1; max-width: 280px; }
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (min-width: 560px) { .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.tile { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tile b { font-family: var(--display); font-weight: 800; font-size: 1.85rem; line-height: 1.05; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile small { color: var(--muted); font-size: .74rem; }
+.tile.neg b { color: var(--bad); }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+th, td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 600; }
+td { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+td:first-child { font-family: var(--body); }
+tr.total td { font-weight: 700; border-bottom: 0; }
+tr.cur td { background: var(--paper-2); }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-family: var(--mono); font-size: .8rem; }
+.pill.ok { background: var(--good-bg); color: var(--good); }
+.pill.no { background: var(--bad-bg); color: var(--bad); }
+.neg { color: var(--bad); }
+.pos { color: var(--good); }
+.est { font-size: .66rem; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); font-weight: 700; }
+
+/* charts */
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { font-family: var(--mono); font-size: 10px; fill: var(--muted); }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .zero { stroke: var(--muted); stroke-width: 1; }
+.tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--paper); border-radius: var(--r); padding: 6px 9px; font-size: .78rem; line-height: 1.35; white-space: nowrap; transform: translate(-50%, calc(-100% - 10px)); z-index: 3; }
+.tip b { font-family: var(--mono); font-weight: 500; }
+
+.compare { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.note { font-size: .82rem; color: var(--muted); margin: 0; max-width: 65ch; }
+
+/* settings sheet */
+.sheet { position: fixed; inset: 0; z-index: 20; background: var(--bg); overflow-y: auto; padding: calc(12px + env(safe-area-inset-top, 0px)) 16px calc(32px + env(safe-area-inset-bottom, 0px)); }
+.sheet .wrap { gap: 14px; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+fieldset { border: 1px solid var(--line); border-radius: var(--r); background: var(--paper); padding: 14px; margin: 0; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+legend { font-family: var(--display); font-weight: 800; font-size: 1.15rem; padding: 0 6px; }
+.rp { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.check { display: flex; align-items: center; gap: 10px; }
+.check input { width: 22px; min-height: 22px; height: 22px; }
+.csvbox[hidden] { display: none; }
+
+@media (max-width: 380px) {
+  .row { grid-template-columns: 62px minmax(0, 1fr) auto; }
+  .pv-gross { font-size: 2.2rem; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tabs button, .btn, .row { transition: background-color .15s ease; }
+}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-warn" viewBox="0 0 20 20"><path fill="currentColor" d="M10 2.5 1.5 17.5h17L10 2.5Zm-.9 5.5h1.8l-.2 5h-1.4l-.2-5Zm.9 6.3a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path fill="none" stroke="currentColor" stroke-width="1.8" d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.6 7.6 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.6 7.6 0 0 0 2.6-1.5l2.4 1 2-3.4-2-1.6Z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3.5 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-bars" viewBox="0 0 24 24"><path d="M5 20V11M12 20V5M19 20v-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-bank" viewBox="0 0 24 24"><path d="M3 20h18M5 17V10M10 17V10M14 17V10M19 17V10M3 8l9-5 9 5H3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-slip" viewBox="0 0 24 24"><path d="M6 2.8h12v18.4l-3-1.6-3 1.6-3-1.6-3 1.6V2.8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8h6M9 12h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+</svg>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <h1>Shift Log</h1>
+      <p>Lagerhelfer · Deutsche Post Obertshausen · via Adecco</p>
+    </div>
+    <span class="sync" id="sync" data-s="busy" role="status"><i></i><span>Connecting…</span></span>
+    <button class="iconbtn" id="open-settings" type="button" aria-label="Settings"><svg><use href="#i-gear"/></svg></button>
+  </div>
+</header>
+
+<main class="wrap" id="main">
+  <!-- SHIFTS -->
+  <section id="tab-shifts" class="wrap" aria-labelledby="t-shifts">
+    <form class="card" id="shift-form" autocomplete="off" novalidate>
+      <div class="btnrow" style="justify-content:space-between">
+        <h2 id="form-title">Add shift</h2>
+        <button type="button" class="btn" id="f-cancel" hidden>New shift</button>
+      </div>
+      <div class="fields">
+        <label class="field"><span>Date (shift start)</span><input type="date" id="f-date" required></label>
+        <label class="field"><span>Status</span>
+          <select id="f-status">
+            <option value="worked">Worked</option>
+            <option value="dayoff">Day off</option>
+            <option value="sick">Sick</option>
+            <option value="vacation">Vacation</option>
+          </select>
+        </label>
+        <div class="field">
+          <label class="field"><span>From</span><input class="time" id="f-from" inputmode="numeric" placeholder="22:00" maxlength="5"></label>
+          <div class="chips" id="chips-from"></div>
+        </div>
+        <div class="field">
+          <label class="field"><span>Till</span><input class="time" id="f-till" inputmode="numeric" placeholder="06:30" maxlength="5"></label>
+          <div class="chips" id="chips-till"></div>
+        </div>
+        <label class="field"><span>Break (min, unpaid)</span><input type="number" id="f-break" inputmode="numeric" min="0" step="5"></label>
+        <label class="field"><span>Break starts (blank = mid-shift)</span><input class="time" id="f-breakstart" inputmode="numeric" placeholder="auto" maxlength="5"></label>
+        <label class="field wide"><span>Note</span><input id="f-note" maxlength="200" placeholder="Optional"></label>
+      </div>
+      <div class="preview" id="preview" aria-live="polite"></div>
+      <div class="btnrow">
+        <button type="submit" class="btn primary" id="f-save">Save shift</button>
+        <button type="button" class="btn danger" id="f-delete" hidden>Delete</button>
+      </div>
+      <p class="msg" id="f-msg"></p>
+    </form>
+    <div id="shift-list" class="wrap"></div>
+  </section>
+
+  <!-- SUMMARY -->
+  <section id="tab-summary" class="wrap" hidden>
+    <div class="filterbar">
+      <div class="seg-ctl" role="group" aria-label="Period type">
+        <button type="button" id="sum-week" aria-pressed="true">Week</button>
+        <button type="button" id="sum-month" aria-pressed="false">Month</button>
+      </div>
+      <select id="sum-period" aria-label="Period"></select>
+    </div>
+    <div class="tiles" id="sum-tiles"></div>
+    <div class="card">
+      <div class="btnrow" style="justify-content:space-between"><h3>Gross per week</h3>
+        <div class="legend"><span><i style="background:var(--base)"></i>Base pay</span><span><i style="background:var(--bonus)"></i>Bonuses</span></div></div>
+      <div class="chart" id="chart-weeks"></div>
+    </div>
+    <div class="card">
+      <h3 id="sum-table-title">Bonus breakdown</h3>
+      <div class="tablewrap" id="sum-table"></div>
+    </div>
+  </section>
+
+  <!-- TIME ACCOUNT -->
+  <section id="tab-account" class="wrap" hidden>
+    <div class="tiles" id="acc-tiles"></div>
+    <div class="card">
+      <div class="btnrow" style="justify-content:space-between"><h3>Balance over time</h3><span class="small muted">daily, h</span></div>
+      <div class="chart" id="chart-balance"></div>
+      <p class="note">Each assignment day adds its share of the month's target (Soll); worked hours count on the shift's start date. The payslip books the balance per month.</p>
+    </div>
+    <div class="card">
+      <h3>Arbeitszeitkonto by month</h3>
+      <div class="tablewrap" id="acc-table"></div>
+    </div>
+    <div class="card">
+      <h3>Earned value vs expected payslip</h3>
+      <div class="tablewrap" id="acc-compare"></div>
+      <p class="note">Adecco pays the target hours every month (MTV §14.1), not the hours worked. The gap between the two columns is the month's time-account change × hourly rate.</p>
+    </div>
+  </section>
+
+  <!-- PAYSLIP -->
+  <section id="tab-payslip" class="wrap" hidden>
+    <div class="filterbar"><label class="label" for="ps-month">Payslip month</label><select id="ps-month"></select></div>
+    <form class="card" id="ps-form" novalidate>
+      <h3>What the payslip says</h3>
+      <div class="fields">
+        <label class="field"><span>Gross total (€)</span><input id="ps-gross" inputmode="decimal" placeholder="0,00"></label>
+        <label class="field"><span>Net total (€)</span><input id="ps-net" inputmode="decimal" placeholder="0,00"></label>
+        <label class="field"><span>Hours paid (Soll)</span><input id="ps-hours" inputmode="decimal" placeholder="0,00"></label>
+        <label class="field"><span>Bonuses paid (€)</span><input id="ps-prem" inputmode="decimal" placeholder="0,00"></label>
+        <label class="field"><span>Time account balance (h)</span><input id="ps-bal" inputmode="decimal" placeholder="0,00"></label>
+        <label class="field"><span>Note</span><input id="ps-note" maxlength="200"></label>
+      </div>
+      <div class="btnrow"><button class="btn primary" type="submit">Save payslip</button><button class="btn danger" type="button" id="ps-delete" hidden>Delete</button></div>
+      <p class="msg" id="ps-msg"></p>
+    </form>
+    <div class="card">
+      <div class="btnrow" style="justify-content:space-between"><h3>Expected vs actual</h3><span class="small muted" id="ps-due"></span></div>
+      <div class="tablewrap" id="ps-table"></div>
+      <p class="note" id="ps-ratio"></p>
+    </div>
+  </section>
+</main>
+
+<nav class="tabs" aria-label="Sections">
+  <div class="tabs-in" role="tablist">
+    <button type="button" role="tab" data-tab="shifts" aria-selected="true"><svg><use href="#i-clock"/></svg>Shifts</button>
+    <button type="button" role="tab" data-tab="summary" aria-selected="false"><svg><use href="#i-bars"/></svg>Summary</button>
+    <button type="button" role="tab" data-tab="account" aria-selected="false"><svg><use href="#i-bank"/></svg>Time account</button>
+    <button type="button" role="tab" data-tab="payslip" aria-selected="false"><svg><use href="#i-slip"/></svg>Payslip</button>
+  </div>
+</nav>
+
+<!-- SETTINGS -->
+<div class="sheet" id="settings" hidden role="dialog" aria-modal="true" aria-labelledby="set-title">
+  <div class="wrap">
+    <div class="sheet-head"><h2 id="set-title">Settings</h2><button class="btn" type="button" id="set-close">Close</button></div>
+    <p class="note">Contract values from the Adecco Einsatzmeldung and the GVP Basistarifwerk 2026. Every change recalculates all shifts.</p>
+    <form id="set-form" class="wrap" novalidate>
+      <fieldset><legend>Hourly rate (EG1)</legend>
+        <div id="set-rates" class="wrap" style="gap:8px"></div>
+        <div class="btnrow"><button class="btn" type="button" id="set-addrate">Add rate period</button></div>
+      </fieldset>
+      <fieldset><legend>Bonuses (%)</legend>
+        <div class="fields">
+          <label class="field"><span>Night</span><input id="s-nightPct" inputmode="decimal"></label>
+          <label class="field"><span>Sunday</span><input id="s-sundayPct" inputmode="decimal"></label>
+          <label class="field"><span>Public holiday</span><input id="s-holidayPct" inputmode="decimal"></label>
+          <label class="field"><span>24.12 / 31.12 after 14:00</span><input id="s-eveAfter14Pct" inputmode="decimal"></label>
+          <label class="field"><span>Overtime (estimate)</span><input id="s-overtimePct" inputmode="decimal"></label>
+          <span></span>
+          <label class="field"><span>Night starts</span><input class="time" id="s-nightStart" inputmode="numeric" maxlength="5"></label>
+          <label class="field"><span>Night ends</span><input class="time" id="s-nightEnd" inputmode="numeric" maxlength="5"></label>
+        </div>
+        <p class="note">When several bonuses apply to the same minute, only the highest is paid (MTV §6.4).</p>
+      </fieldset>
+      <fieldset><legend>Working time</legend>
+        <div class="fields">
+          <label class="field"><span>Regular hours per week</span><input id="s-weeklyHours" inputmode="decimal"></label>
+          <label class="field"><span>Weeks per month</span><input id="s-weeksPerMonth" inputmode="decimal"></label>
+          <label class="field"><span>Assignment start</span><input type="date" id="s-assignmentStart"></label>
+          <label class="field"><span>Assignment end</span><input type="date" id="s-assignmentEnd"></label>
+          <label class="field"><span>Default break (min)</span><input id="s-defaultBreakMin" inputmode="numeric"></label>
+          <label class="field"><span>Sick / vacation day credit (h)</span><input id="s-absenceCreditH" inputmode="decimal" placeholder="weekly ÷ 5"></label>
+        </div>
+        <label class="check"><input type="checkbox" id="s-breakPaid"><span>Break is paid</span></label>
+        <label class="field"><span>Monthly target overrides (one per line: YYYY-MM = hours)</span><textarea id="s-overrides" placeholder="2026-10 = 87.41"></textarea></label>
+      </fieldset>
+      <fieldset><legend>Net estimate</legend>
+        <div class="fields">
+          <label class="field"><span>Net ratio on taxable pay</span><input id="s-netRatio" inputmode="decimal"></label>
+          <label class="check" style="align-self:end"><input type="checkbox" id="s-netRatioCalibrated"><span>Calibrated from a payslip</span></label>
+        </div>
+      </fieldset>
+      <fieldset><legend>Calendar (Hessen)</legend>
+        <label class="field"><span>Public holidays, one date per line (YYYY-MM-DD)</span><textarea id="s-holidays"></textarea></label>
+        <label class="field"><span>24.12 / 31.12 dates (bonus after 14:00)</span><textarea id="s-eveDates"></textarea></label>
+        <p class="note">The 2027 dates only matter if the assignment is extended. Check them before relying on them.</p>
+      </fieldset>
+      <div class="btnrow">
+        <button class="btn primary" type="submit">Save settings</button>
+        <button class="btn danger" type="button" id="set-reset">Reset to contract defaults</button>
+      </div>
+      <p class="msg" id="set-msg"></p>
+    </form>
+    <fieldset><legend>Export</legend>
+      <p class="note">All shifts with their calculated pay, as a CSV file (semicolon-separated, decimal comma, opens in German Excel).</p>
+      <div class="btnrow"><button class="btn" type="button" id="csv-btn">Export CSV</button></div>
+      <div class="csvbox" id="csv-box" hidden>
+        <textarea id="csv-text" readonly aria-label="CSV text"></textarea>
+        <div class="btnrow"><button class="btn" type="button" id="csv-copy">Copy CSV</button></div>
+      </div>
+      <p class="msg" id="csv-msg"></p>
+    </fieldset>
+  </div>
+</div>
+
+<script>
+/*__CALC__*/
+</script>
+<script>
+/*__APP__*/
+</script>
