@@ -219,5 +219,7 @@ legend { font-family: var(--display); font-weight: 800; font-size: 1.15rem; padd
 .ob-dots i.on { background: var(--accent); }
 .choice { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .choice .btn[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-.status-line { font-size: .72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Own row under the title: at 390 px the German line is wider than the space next to it. */
+.top-in { flex-wrap: wrap; row-gap: 4px; }
+.status-line { order: 3; flex: 1 0 100%; min-width: 0; font-size: .72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .status-line.warn { color: var(--warn); }
