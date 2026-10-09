@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "Shift Log",
+  "short_name": "Shift Log",
+  "description": "Shift and pay tracker for Adecco temps at Deutsche Post Obertshausen",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#e7eaed",
+  "theme_color": "#142231",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

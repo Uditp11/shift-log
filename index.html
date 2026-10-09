@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shift Log</title>
+<meta name="description" content="Shift and pay tracker for Adecco temps at Deutsche Post Obertshausen">
+<meta name="theme-color" content="#e7eaed" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e141b" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Shift Log">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+<style>:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); } body { margin: 0; } [hidden] { display: none !important; } img { max-width: 100%; }</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-warn" viewBox="0 0 20 20"><path fill="currentColor" d="M10 2.5 1.5 17.5h17L10 2.5Zm-.9 5.5h1.8l-.2 5h-1.4l-.2-5Zm.9 6.3a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path fill="none" stroke="currentColor" stroke-width="1.8" d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.6 7.6 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.6 7.6 0 0 0 2.6-1.5l2.4 1 2-3.4-2-1.6Z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3.5 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-bars" viewBox="0 0 24 24"><path d="M5 20V11M12 20V5M19 20v-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-bank" viewBox="0 0 24 24"><path d="M3 20h18M5 17V10M10 17V10M14 17V10M19 17V10M3 8l9-5 9 5H3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-slip" viewBox="0 0 24 24"><path d="M6 2.8h12v18.4l-3-1.6-3 1.6-3-1.6-3 1.6V2.8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8h6M9 12h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+</svg>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <h1>Shift Log</h1>
+      <p>Lagerhelfer · Deutsche Post Obertshausen · via Adecco</p>
+    </div>
+    <span class="status-line" id="status" role="status"></span>
+    <button class="iconbtn" id="open-settings" type="button" aria-label="Settings"><svg><use href="#i-gear"/></svg></button>
+  </div>
+</header>
+
+<main class="wrap" id="main">
+  <div id="banners" aria-live="polite"></div>
+  <!-- SHIFTS -->
+  <section id="tab-shifts" class="wrap" aria-labelledby="t-shifts">
+    <form class="card" id="shift-form" autocomplete="off" novalidate>
+      <div class="btnrow" style="justify-content:space-between">
+        <h2 id="form-title">Add shift</h2>
+        <button type="button" class="btn" id="f-cancel" hidden>New shift</button>
+      </div>
+      <div class="fields">
+        <label class="field"><span>Date (shift start)</span><input type="date" id="f-date" required></label>
+        <label class="field"><span>Status</span>
+          <select id="f-status">
+            <option value="worked">Worked</option>
+            <option value="dayoff">Day off</option>
+            <option value="sick">Sick</option>
+            <option value="vacation">Vacation</option>
+          </select>
+        </label>
+        <div class="field">
+          <label class="field"><span>From</span><input class="time" id="f-from" inputmode="numeric" placeholder="22:00" maxlength="5"></label>
+          <div class="chips" id="chips-from"></div>
+        </div>
+        <div class="field">
+          <label class="field"><span>Till</span><input class="time" id="f-till" inputmode="numeric" placeholder="06:30" maxlength="5"></label>
+          <div class="chips" id="chips-till"></div>
+        </div>
+        <label class="field"><span>Break (min, unpaid)</span><input type="number" id="f-break" inputmode="numeric" min="0" step="5"></label>
+        <label class="field"><span>Break starts (blank = mid-shift)</span><input class="time" id="f-breakstart" inputmode="numeric" placeholder="auto" maxlength="5"></label>
+        <label class="field wide"><span>Note</span><input id="f-note" maxlength="200" placeholder="Optional"></label>
+      </div>
+      <div class="preview" id="preview" aria-live="polite"></div>
+      <div class="btnrow">
+        <button type="submit" class="btn primary" id="f-save">Save shift</button>
+        <button type="button" class="btn danger" id="f-delete" hidden>Delete</button>
+      </div>
+      <p class="msg" id="f-msg"></p>
+    </form>
+    <div id="shift-list" class="wrap"></div>
+  </section>
+
+  <!-- SUMMARY -->
+  <section id="tab-summary" class="wrap" hidden>
+    <div class="filterbar">
+      <div class="seg-ctl" role="group" aria-label="Period type">
+        <button type="button" id="sum-week" aria-pressed="true">Week</button>
+        <button type="button" id="sum-month" aria-pressed="false">Month</button>
+      </div>
+      <select id="sum-period" aria-label="Period"></select>
+    </div>
+    <div class="tiles" id="sum-tiles"></div>
+    <div class="card">
+      <div class="btnrow" style="justify-content:space-between"><h3>Gross per week</h3>
+        <div class="legend"><span><i style="background:var(--base)"></i>Base pay</span><span><i style="background:var(--bonus)"></i>Bonuses</span></div></div>
+      <div class="chart" id="chart-weeks"></div>
+    </div>
+    <div class="card">
+      <h3 id="sum-table-title">Bonus breakdown</h3>
+      <div class="tablewrap" id="sum-table"></div>
+    </div>
+  </section>
+
+  <!-- TIME ACCOUNT -->
+  <section id="tab-account" class="wrap" hidden>
+    <div class="tiles" id="acc-tiles"></div>
+    <div class="card">
+      <div class="btnrow" style="justify-content:space-between"><h3>Balance over time</h3><span class="small muted">daily, h</span></div>
+      <div class="chart" id="chart-balance"></div>
+      <p class="note">Each assignment day adds its share of the month's target (Soll); worked hours count on the shift's start date. The payslip books the balance per month.</p>
+    </div>
+    <div class="card">
+      <h3>Arbeitszeitkonto by month</h3>
+      <div class="tablewrap" id="acc-table"></div>
+    </div>
+    <div class="card">
+      <h3>Earned value vs expected payslip</h3>
+      <div class="tablewrap" id="acc-compare"></div>
+      <p class="note">Adecco pays the target hours every month (MTV §14.1), not the hours worked. The gap between the two columns is the month's time-account change × hourly rate.</p>
+    </div>
+  </section>
+
+  <!-- PAYSLIP -->
+  <section id="tab-payslip" class="wrap" hidden>
+    <div class="filterbar"><label class="label" for="ps-month">Payslip month</label><select id="ps-month"></select></div>
+    <form class="card" id="ps-form" novalidate>
+      <h3>What the payslip says</h3>
+      <div class="fields">
+        <label class="field"><span>Gross total (€)</span><input id="ps-gross" inputmode="decimal" placeholder="0,00"></label>
+        <label class="field"><span>Net total (€)</span><input id="ps-net" inputmode="decimal" placeholder="0,00"></label>
+        <label class="field"><span>Hours paid (Soll)</span><input id="ps-hours" inputmode="decimal" placeholder="0,00"></label>
+        <label class="field"><span>Bonuses paid (€)</span><input id="ps-prem" inputmode="decimal" placeholder="0,00"></label>
+        <label class="field"><span>Time account balance (h)</span><input id="ps-bal" inputmode="decimal" placeholder="0,00"></label>
+        <label class="field"><span>Note</span><input id="ps-note" maxlength="200"></label>
+      </div>
+      <div class="btnrow"><button class="btn primary" type="submit">Save payslip</button><button class="btn danger" type="button" id="ps-delete" hidden>Delete</button></div>
+      <p class="msg" id="ps-msg"></p>
+    </form>
+    <div class="card">
+      <div class="btnrow" style="justify-content:space-between"><h3>Expected vs actual</h3><span class="small muted" id="ps-due"></span></div>
+      <div class="tablewrap" id="ps-table"></div>
+      <p class="note" id="ps-ratio"></p>
+    </div>
+  </section>
+</main>
+
+<nav class="tabs" aria-label="Sections">
+  <div class="tabs-in" role="tablist">
+    <button type="button" role="tab" data-tab="shifts" aria-selected="true"><svg><use href="#i-clock"/></svg>Shifts</button>
+    <button type="button" role="tab" data-tab="summary" aria-selected="false"><svg><use href="#i-bars"/></svg>Summary</button>
+    <button type="button" role="tab" data-tab="account" aria-selected="false"><svg><use href="#i-bank"/></svg>Time account</button>
+    <button type="button" role="tab" data-tab="payslip" aria-selected="false"><svg><use href="#i-slip"/></svg>Payslip</button>
+  </div>
+</nav>
+
+<!-- SETTINGS -->
+<div class="sheet" id="settings" hidden role="dialog" aria-modal="true" aria-labelledby="set-title">
+  <div class="wrap">
+    <div class="sheet-head"><h2 id="set-title">Settings</h2><button class="btn" type="button" id="set-close">Close</button></div>
+    <p class="note">Contract values from the Adecco Einsatzmeldung and the GVP Basistarifwerk 2026. Every change recalculates all shifts.</p>
+    <form id="set-form" class="wrap" novalidate>
+      <fieldset><legend>Hourly rate (EG1)</legend>
+        <div id="set-rates" class="wrap" style="gap:8px"></div>
+        <div class="btnrow"><button class="btn" type="button" id="set-addrate">Add rate period</button></div>
+      </fieldset>
+      <fieldset><legend>Bonuses (%)</legend>
+        <div class="fields">
+          <label class="field"><span>Night</span><input id="s-nightPct" inputmode="decimal"></label>
+          <label class="field"><span>Sunday</span><input id="s-sundayPct" inputmode="decimal"></label>
+          <label class="field"><span>Public holiday</span><input id="s-holidayPct" inputmode="decimal"></label>
+          <label class="field"><span>24.12 / 31.12 after 14:00</span><input id="s-eveAfter14Pct" inputmode="decimal"></label>
+          <label class="field"><span>Overtime (estimate)</span><input id="s-overtimePct" inputmode="decimal"></label>
+          <span></span>
+          <label class="field"><span>Night starts</span><input class="time" id="s-nightStart" inputmode="numeric" maxlength="5"></label>
+          <label class="field"><span>Night ends</span><input class="time" id="s-nightEnd" inputmode="numeric" maxlength="5"></label>
+        </div>
+        <p class="note">When several bonuses apply to the same minute, only the highest is paid (MTV §6.4).</p>
+      </fieldset>
+      <fieldset><legend>Working time</legend>
+        <div class="fields">
+          <label class="field"><span>Regular hours per week</span><input id="s-weeklyHours" inputmode="decimal"></label>
+          <label class="field"><span>Weeks per month</span><input id="s-weeksPerMonth" inputmode="decimal"></label>
+          <label class="field"><span>Assignment start</span><input type="date" id="s-assignmentStart"></label>
+          <label class="field"><span>Assignment end</span><input type="date" id="s-assignmentEnd"></label>
+          <label class="field"><span>Default break (min)</span><input id="s-defaultBreakMin" inputmode="numeric"></label>
+          <label class="field"><span>Sick / vacation day credit (h)</span><input id="s-absenceCreditH" inputmode="decimal" placeholder="weekly ÷ 5"></label>
+        </div>
+        <label class="check"><input type="checkbox" id="s-breakPaid"><span>Break is paid</span></label>
+        <label class="field"><span>Monthly target overrides (one per line: YYYY-MM = hours)</span><textarea id="s-overrides" placeholder="2026-10 = 87.41"></textarea></label>
+      </fieldset>
+      <fieldset><legend>Net estimate</legend>
+        <div class="fields">
+          <label class="field"><span>Net ratio on taxable pay</span><input id="s-netRatio" inputmode="decimal"></label>
+          <label class="check" style="align-self:end"><input type="checkbox" id="s-netRatioCalibrated"><span>Calibrated from a payslip</span></label>
+        </div>
+      </fieldset>
+      <fieldset><legend>Calendar (Hessen)</legend>
+        <label class="field"><span>Public holidays, one date per line (YYYY-MM-DD)</span><textarea id="s-holidays"></textarea></label>
+        <label class="field"><span>24.12 / 31.12 dates (bonus after 14:00)</span><textarea id="s-eveDates"></textarea></label>
+        <p class="note">The 2027 dates only matter if the assignment is extended. Check them before relying on them.</p>
+      </fieldset>
+      <div class="btnrow">
+        <button class="btn primary" type="submit">Save settings</button>
+        <button class="btn danger" type="button" id="set-reset">Reset to contract defaults</button>
+      </div>
+      <p class="msg" id="set-msg"></p>
+    </form>
+    <fieldset><legend>Export</legend>
+      <p class="note">All shifts with their calculated pay, as a CSV file (semicolon-separated, decimal comma, opens in German Excel).</p>
+      <div class="btnrow"><button class="btn" type="button" id="csv-btn">Export CSV</button></div>
+      <div class="csvbox" id="csv-box" hidden>
+        <textarea id="csv-text" readonly aria-label="CSV text"></textarea>
+        <div class="btnrow"><button class="btn" type="button" id="csv-copy">Copy CSV</button></div>
+      </div>
+      <p class="msg" id="csv-msg"></p>
+    </fieldset>
+  </div>
+</div>
+
+<div class="sheet" id="onboarding" hidden role="dialog" aria-modal="true" aria-labelledby="ob-title">
+  <div class="wrap" id="ob-body"></div>
+</div>
+<input type="file" id="restore-file" accept=".json,application/json" hidden>
+<script src="src/version.js"></script>
+<script src="src/calc.js"></script>
+<script src="src/format.js"></script>
+<script src="src/i18n.js"></script>
+<script src="src/backup.js"></script>
+<script src="src/store.js"></script>
+<script src="src/app.js"></script>
+</body>
+</html>
