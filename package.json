@@ -1,0 +1,17 @@
+{
+  "name": "shift-log",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shift and pay tracker for Adecco temp workers at Deutsche Post Obertshausen (home-screen web app)",
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\"",
+    "e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@fontsource/big-shoulders-display": "^5.0.0",
+    "@fontsource/ibm-plex-mono": "^5.0.0",
+    "@fontsource/public-sans": "^5.0.0",
+    "@playwright/test": "1.47.2",
+    "fake-indexeddb": "6.0.0"
+  }
+}
