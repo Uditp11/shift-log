@@ -872,7 +872,7 @@
     const s = r.summary;
     $('restore-preview').innerHTML = '<p>' + esc(t('restore.preview', {
       shifts: s.shifts, payslips: s.payslips, first: s.first ? dmy(s.first) : '–', last: s.last ? dmy(s.last) : '–',
-      saved: s.exportedAt ? dmy(s.exportedAt.slice(0, 10)) : '–',
+      saved: s.exportedAt && !isNaN(new Date(s.exportedAt)) ? dmy(Fmt.todayStr(new Date(s.exportedAt))) : '–',
     })) + '</p><div class="btnrow"><button class="btn primary" type="button" id="restore-replace">' + esc(t('restore.replace')) +
       '</button><button class="btn" type="button" id="restore-merge">' + esc(t('restore.merge')) + '</button></div>';
     $('restore-preview').hidden = false;

@@ -117,3 +117,8 @@ test('Android gets an unfiltered file picker so a backup is never greyed out', (
   assert.match(html, /id="restore-file" accept="\.json,application\/json"/);
   assert.match(app, /if \(isAndroid\(\)\) \$\('restore-file'\)\.removeAttribute\('accept'\)/);
 });
+
+test('restore preview shows the backup date in local time, like the file name (not the UTC date)', () => {
+  assert.doesNotMatch(app, /exportedAt\.slice\(0, 10\)/);
+  assert.match(app, /Fmt\.todayStr\(new Date\(s\.exportedAt\)\)/);
+});
