@@ -73,3 +73,7 @@ test('index.html has the iOS and Android home-screen tags', () => {
   assert.match(html, /<meta name="theme-color" content="#[0-9a-f]{6}" media="\(prefers-color-scheme: dark\)">/);
   assert.match(html, /viewport-fit=cover/);
 });
+test('index.html declares light and dark so the first paint matches the phone theme (no white flash in dark mode)', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.match(html, /<meta name="color-scheme" content="light dark">/);
+});
