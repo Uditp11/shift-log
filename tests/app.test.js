@@ -74,3 +74,51 @@ test('app.js uses Fmt, I18n and Store instead of the first version\'s own code p
   assert.match(app, /= Fmt;/);
   assert.match(app, /navigator\.share\(/);
 });
+
+// The element ids the e2e tests drive. Static ones live in index.html, the rest are built by app.js.
+test('index.html and app.js provide every element id the e2e tests use', () => {
+  const inHtml = ['banners', 'backup-btn', 'backup-msg', 'restore-btn', 'restore-preview', 'restore-msg', 'undo-btn',
+    's-lang', 's-jobLabel', 's-backupReminderDays', 'storage-status', 'storage-counts', 'about-version', 'ob-body', 'restore-file'];
+  for (const id of inHtml) assert.match(html, new RegExp('id="' + id + '"'), '#' + id + ' in index.html');
+  const inApp = ['ob-lang-en', 'ob-lang-de', 'ob-next', 'ob-back', 'ob-start', 'ob-end', 'ob-hours', 'ob-first', 'ob-restore',
+    'backup-now', 'update-reload', 'restore-replace', 'restore-merge'];
+  for (const id of inApp) assert.ok(app.includes('id="' + id + '"') || app.includes("'" + id + "'"), '#' + id + ' built by app.js');
+});
+
+test('install steps follow the phone: Chrome steps on Android, Safari steps otherwise', () => {
+  assert.match(app, /\/Android\/i\.test\(navigator\.userAgent\)/);
+  assert.match(app, /'ob\.home\.stepsAndroid'/);
+  assert.match(app, /'ob\.home\.whyAndroid'/);
+  assert.match(app, /'ob\.home\.steps'/);
+  assert.match(app, /'ob\.home\.why'/);
+});
+
+test('storage status says "unknown" when the browser cannot tell (isPersisted() → null)', () => {
+  assert.match(app, /p === true \? 'storage\.persisted' : p === false \? 'storage\.notPersisted' : 'storage\.unknown'/);
+});
+
+test('backup, restore and update wiring is in place', () => {
+  assert.match(app, /Backup\.buildBackup\(/);
+  assert.match(app, /Backup\.parseBackup\(/);
+  assert.match(app, /Backup\.mergeMissing\(/);
+  assert.match(app, /Backup\.backupDue\(/);
+  assert.match(app, /store\.saveUndo\(\)/);
+  assert.match(app, /store\.restoreUndo\(\)/);
+  assert.match(app, /store\.requestPersist\(\)/);
+  assert.match(app, /\.register\('sw\.js'\)/);
+  assert.match(app, /postMessage\('SKIP_WAITING'\)/);
+});
+
+test('About links to the real repository', () => {
+  assert.match(html, /<a href="https:\/\/github\.com\/Uditp11\/shift-log" id="repo-link"/);
+});
+
+test('Android gets an unfiltered file picker so a backup is never greyed out', () => {
+  assert.match(html, /id="restore-file" accept="\.json,application\/json"/);
+  assert.match(app, /if \(isAndroid\(\)\) \$\('restore-file'\)\.removeAttribute\('accept'\)/);
+});
+
+test('restore preview shows the backup date in local time, like the file name (not the UTC date)', () => {
+  assert.doesNotMatch(app, /exportedAt\.slice\(0, 10\)/);
+  assert.match(app, /Fmt\.todayStr\(new Date\(s\.exportedAt\)\)/);
+});

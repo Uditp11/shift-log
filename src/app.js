@@ -53,6 +53,7 @@
     state.loaded = true;
     applyStaticText();
     renderStatus();
+    if (!$('settings').hidden) fillSettingsInfo();
     bump();
   }
 
@@ -77,6 +78,7 @@
     const last = state.meta.lastBackupAt;
     el.className = 'status-line' + (last ? '' : ' warn');
     el.textContent = t('status.saved') + ' · ' + (last ? t('status.lastBackup', { when: whenText(last) }) : t('status.noBackup'));
+    renderBanners();
   }
 
   function whenText(iso) {
@@ -98,6 +100,8 @@
     for (const el of document.querySelectorAll('[data-i18n-ph]')) el.placeholder = t(el.dataset.i18nPh);
     for (const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label', t(el.dataset.i18nAria));
     renderFormHead();
+    const sub = document.querySelector('.brand p');
+    if (sub && S().jobLabel) sub.textContent = S().jobLabel;
   }
 
   // calc.js (frozen) gives warnings as a code plus English text; the numbers in the text are the only variable part.
@@ -680,7 +684,20 @@
     $('s-breakPaid').checked = !!s.breakPaid; $('s-netRatioCalibrated').checked = !!s.netRatioCalibrated;
     $('s-holidays').value = (s.holidays || []).join('\n'); $('s-eveDates').value = (s.eveDates || []).join('\n');
     $('s-overrides').value = Object.keys(s.monthTargetOverride || {}).sort().map((k) => k + ' = ' + numIn(s.monthTargetOverride[k])).join('\n');
+    $('s-lang').value = s.lang;
+    $('s-jobLabel').value = s.jobLabel || '';
+    $('s-backupReminderDays').value = s.backupReminderDays;
+    fillSettingsInfo();
     msg('set-msg', '');
+  }
+  // The read-only lines (last backup, storage, version, undo); refreshed on every reload while Settings is open.
+  function fillSettingsInfo() {
+    $('backup-last').textContent = state.meta.lastBackupAt ? t('status.lastBackup', { when: whenText(state.meta.lastBackupAt) }) : t('status.noBackup');
+    $('storage-counts').textContent = t('storage.counts', { shifts: Object.keys(state.shifts).length, payslips: Object.keys(state.payslips).length });
+    $('about-version').textContent = t('settings.version', { v: self.APP_VERSION });
+    if (!store) return;
+    store.isPersisted().then((p) => { $('storage-status').textContent = t(p === true ? 'storage.persisted' : p === false ? 'storage.notPersisted' : 'storage.unknown'); });
+    store.hasUndo().then((u) => { $('undo-btn').hidden = !u; });
   }
   // The field's visible label, for error messages ("Check the value for Night.").
   const fieldLabel = (id) => { const sp = $(id).closest('label').querySelector('span'); return sp ? sp.textContent : id; };
@@ -713,6 +730,10 @@
       if (!m) err(t('settings.errOverride'));
       s.monthTargetOverride[m[1]] = parseNum(m[2]);
     }
+    s.jobLabel = $('s-jobLabel').value.trim() || defaults().jobLabel;
+    const rd = parseNum($('s-backupReminderDays').value);
+    if (!(rd >= 1)) err(t('settings.reminderDaysErr'));
+    s.backupReminderDays = Math.round(rd);
     return s;
   }
   function openSettings() { fillSettings(S()); $('settings').hidden = false; document.body.style.overflow = 'hidden'; $('set-close').focus(); }
@@ -785,6 +806,214 @@
     try { navigator.clipboard.writeText(ta.value).then(() => msg('csv-msg', t('csv.copied')), sel); } catch (e) { sel(); }
   });
 
+  // ---------- banners (no storage, update, not installed, backup reminder) ----------
+  let updateWorker = null, reloadOnSwap = false;
+  const isStandalone = () => navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+  // Android Chrome installs from its ⋮ menu; everything else gets the iPhone Safari steps.
+  const isAndroid = () => /Android/i.test(navigator.userAgent);
+  const homeSteps = () => t(isAndroid() ? 'ob.home.stepsAndroid' : 'ob.home.steps');
+  const homeWhy = () => t(isAndroid() ? 'ob.home.whyAndroid' : 'ob.home.why');
+
+  function banner(kind, text, sub, buttons) {
+    return '<div class="banner' + (kind === 'bad' ? ' bad' : '') + '"' + (kind === 'bad' ? ' role="alert"' : '') + '><p>' + esc(text) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</p>' +
+      (buttons || []).map(([id, label]) => '<button type="button" class="btn" id="' + id + '">' + esc(label) + '</button>').join('') + '</div>';
+  }
+
+  function renderBanners() {
+    const out = [];
+    if (!store && state.loaded) out.push(banner('bad', t('banner.noStorage')));
+    if (updateWorker) out.push(banner('warn', t('banner.update'), '', [['update-reload', t('banner.reload')]]));
+    if (store && !isStandalone()) out.push(banner('warn', t('banner.safari'), homeSteps()));
+    const due = store && state.tab === 'shifts' && Backup.backupDue(state.meta, S(), Object.keys(state.shifts).length, new Date());
+    if (due) out.push(banner('warn', due.never ? t('banner.neverBackedUp') : t('banner.backupDue', { when: whenText(state.meta.lastBackupAt) }), '', [['backup-now', t('backup.save')]]));
+    $('banners').innerHTML = out.join('');
+  }
+
+  $('banners').addEventListener('click', (e) => {
+    if (e.target.id === 'backup-now') doBackup('f-msg');
+    if (e.target.id === 'update-reload' && updateWorker) { reloadOnSwap = true; updateWorker.postMessage('SKIP_WAITING'); }
+  });
+
+  // ---------- backup ----------
+  // Must not await before shareFile(): iOS needs the tap's user activation for the share sheet.
+  function doBackup(msgId) {
+    const now = new Date();
+    const file = Backup.buildBackup({ shifts: state.shifts, payslips: state.payslips, settings: state.settingsDoc || state.settings }, now, self.APP_VERSION);
+    shareFile(Backup.backupFileName(now), JSON.stringify(file, null, 1), 'application/json').then(async (r) => {
+      if (r === 'cancelled') return msg(msgId, t('backup.cancelled'));
+      await store.setMeta({ lastBackupAt: now.toISOString() });
+      await reload();
+      msg(msgId, t('backup.saved'));
+    }, () => msg(msgId, t('backup.failed'), true));
+  }
+  $('backup-btn').addEventListener('click', () => doBackup('backup-msg'));
+
+  // ---------- restore with preview and undo ----------
+  let pendingRestore = null;
+  // Some Android file pickers don't map .json to a MIME type and grey the backup out; parseBackup refuses wrong files anyway.
+  if (isAndroid()) $('restore-file').removeAttribute('accept');
+  $('restore-btn').addEventListener('click', () => $('restore-file').click());
+  $('restore-file').addEventListener('change', async (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    const onboarding = !$('onboarding').hidden;
+    const target = onboarding ? 'ob-msg' : 'restore-msg';
+    let r;
+    try { r = Backup.parseBackup(await f.text()); } catch (err) { r = { ok: false, code: 'bad-json', detail: '' }; }
+    if (!r.ok) { pendingRestore = null; $('restore-preview').hidden = true; return msg(target, t('restore.err.' + r.code, { detail: r.detail }), true); }
+    pendingRestore = r;
+    if (onboarding) {
+      // A backup without settings (e.g. from the first version of the app) keeps what was just entered in onboarding.
+      if (!r.data.settings) r.data.settings = { ...S(), ...OB.draft };
+      if (await applyRestore('replace', 'ob-msg')) await finishOnboardingAfterRestore();
+      return;
+    }
+    const s = r.summary;
+    $('restore-preview').innerHTML = '<p>' + esc(t('restore.preview', {
+      shifts: s.shifts, payslips: s.payslips, first: s.first ? dmy(s.first) : '–', last: s.last ? dmy(s.last) : '–',
+      saved: s.exportedAt && !isNaN(new Date(s.exportedAt)) ? dmy(Fmt.todayStr(new Date(s.exportedAt))) : '–',
+    })) + '</p><div class="btnrow"><button class="btn primary" type="button" id="restore-replace">' + esc(t('restore.replace')) +
+      '</button><button class="btn" type="button" id="restore-merge">' + esc(t('restore.merge')) + '</button></div>';
+    $('restore-preview').hidden = false;
+    msg('restore-msg', '');
+  });
+  $('restore-preview').addEventListener('click', (e) => {
+    if (e.target.id === 'restore-replace') applyRestore('replace', 'restore-msg');
+    if (e.target.id === 'restore-merge') applyRestore('merge', 'restore-msg');
+  });
+
+  // Returns true when the data was written.
+  async function applyRestore(mode, msgId) {
+    const r = pendingRestore;
+    if (!r) return false;
+    pendingRestore = null;
+    $('restore-preview').hidden = true;
+    let ok = false;
+    try {
+      await store.saveUndo();
+      const current = { shifts: state.shifts, payslips: state.payslips, settings: state.settingsDoc };
+      await store.replaceAll(mode === 'merge' ? Backup.mergeMissing(current, r.data) : r.data);
+      await store.setMeta({ onboarded: true });
+      await reload();
+      if (!$('settings').hidden) fillSettings(S());
+      msg(msgId, t('restore.done', { shifts: Object.keys(state.shifts).length, payslips: Object.keys(state.payslips).length }));
+      ok = true;
+    } catch (err) { msg(msgId, writeError(err), true); }
+    $('undo-btn').hidden = !(await store.hasUndo());
+    return ok;
+  }
+
+  $('undo-btn').addEventListener('click', async () => {
+    try {
+      await store.restoreUndo();
+      await reload();
+      fillSettings(S());
+      msg('restore-msg', t('restore.undone'));
+    } catch (err) { msg('restore-msg', writeError(err), true); }
+    $('undo-btn').hidden = !(await store.hasUndo());
+  });
+
+  // ---------- language (applies at once; whatever is typed in any form stays) ----------
+  $('s-lang').addEventListener('change', async (e) => {
+    const s = { ...S(), lang: e.target.value };
+    try { await write('settings/settings', s); relabelSettings(); renderPreview(); }
+    catch (err) { msg('set-msg', writeError(err), true); }
+  });
+  // Text that app.js builds inside the settings sheet; the inputs keep their (maybe unsaved) values.
+  function relabelSettings() {
+    for (const row of $('set-rates').querySelectorAll('.rp')) {
+      row.querySelector('.rp-from').closest('label').querySelector('span').textContent = t('settings.validFrom');
+      row.querySelector('.rp-rate').closest('label').querySelector('span').textContent = t('settings.perHour');
+      const del = row.querySelector('.rp-del');
+      del.textContent = t('settings.remove'); del.setAttribute('aria-label', t('settings.removeRateAria'));
+    }
+    fillSettingsInfo();
+    for (const id of ['set-msg', 'backup-msg', 'restore-msg', 'csv-msg']) msg(id, '');
+    $('restore-preview').hidden = true; pendingRestore = null;
+  }
+
+  // ---------- first launch ----------
+  const OB = { step: 0, draft: null };
+  const obSteps = () => (isStandalone() ? ['lang', 'contract', 'start'] : ['lang', 'contract', 'home', 'start']);
+
+  function startOnboarding() {
+    const s = S();
+    OB.step = 0;
+    OB.draft = { lang: s.lang, assignmentStart: s.assignmentStart, assignmentEnd: s.assignmentEnd, weeklyHours: s.weeklyHours };
+    $('onboarding').hidden = false;
+    document.body.style.overflow = 'hidden';
+    renderOnboarding();
+  }
+
+  function renderOnboarding() {
+    I18n.setLang(OB.draft.lang);
+    applyStaticText();
+    renderBanners();
+    const steps = obSteps(), step = steps[OB.step];
+    const dots = '<div class="ob-dots" aria-hidden="true">' + steps.map((_, i) => '<i class="' + (i === OB.step ? 'on' : '') + '"></i>').join('') + '</div>';
+    const nav = (next) => '<div class="btnrow">' + (OB.step ? '<button class="btn" type="button" id="ob-back">' + esc(t('common.back')) + '</button>' : '') +
+      (next ? '<button class="btn primary" type="button" id="ob-next">' + esc(t('common.next')) + '</button>' : '') + '</div>';
+    let body = '';
+    if (step === 'lang') {
+      body = '<h2 id="ob-title">' + esc(t('ob.lang.title')) + '</h2><div class="choice">' +
+        '<button class="btn" type="button" id="ob-lang-en" aria-pressed="' + (OB.draft.lang === 'en') + '">English</button>' +
+        '<button class="btn" type="button" id="ob-lang-de" aria-pressed="' + (OB.draft.lang === 'de') + '">Deutsch</button></div>' + nav(true);
+    } else if (step === 'contract') {
+      body = '<h2 id="ob-title">' + esc(t('ob.contract.title')) + '</h2><p class="note">' + esc(t('ob.contract.body')) + '</p><div class="fields">' +
+        '<label class="field"><span>' + esc(t('field.assignmentStart')) + '</span><input type="date" id="ob-start" value="' + esc(OB.draft.assignmentStart) + '"></label>' +
+        '<label class="field"><span>' + esc(t('field.assignmentEnd')) + '</span><input type="date" id="ob-end" value="' + esc(OB.draft.assignmentEnd) + '"></label>' +
+        '<label class="field wide"><span>' + esc(t('field.weeklyHours')) + '</span><input id="ob-hours" inputmode="decimal" value="' + esc(numIn(OB.draft.weeklyHours)) + '"></label></div>' + nav(true);
+    } else if (step === 'home') {
+      body = '<h2 id="ob-title">' + esc(t('ob.home.title')) + '</h2><p>' + esc(homeSteps()) + '</p><p class="note">' + esc(homeWhy()) + '</p>' + nav(true);
+    } else {
+      body = '<h2 id="ob-title">' + esc(t('app.name')) + '</h2><p class="note">' + esc(t('ob.data.warning')) + '</p><div class="btnrow">' +
+        '<button class="btn primary" type="button" id="ob-first">' + esc(t('ob.firstShift')) + '</button>' +
+        '<button class="btn" type="button" id="ob-restore">' + esc(t('ob.restore')) + '</button></div>' + nav(false);
+    }
+    $('ob-body').innerHTML = '<div class="ob-step">' + dots + body + '<p class="msg" id="ob-msg" role="status"></p></div>';
+  }
+
+  function readObContract(check) {
+    const h = parseNum($('ob-hours').value);
+    if (check && !(h > 0 && h <= 48)) { msg('ob-msg', t('ob.hoursErr'), true); return false; }
+    if (check && !$('ob-start').value) { msg('ob-msg', t('ob.startErr'), true); return false; }
+    OB.draft.assignmentStart = $('ob-start').value;
+    OB.draft.assignmentEnd = $('ob-end').value || '';
+    if (h > 0) OB.draft.weeklyHours = h;
+    return true;
+  }
+
+  function closeOnboarding() { $('onboarding').hidden = true; document.body.style.overflow = ''; renderBanners(); }
+  async function finishOnboarding() {
+    await write('settings/settings', { ...S(), ...OB.draft });
+    await store.setMeta({ onboarded: true, persistAsked: true });
+    await store.requestPersist();
+    await reload();
+    closeOnboarding();
+  }
+  async function finishOnboardingAfterRestore() {
+    await store.setMeta({ persistAsked: true });
+    await store.requestPersist();
+    closeOnboarding();
+    resetForm();
+    setTab('shifts');
+    msg('f-msg', t('restore.done', { shifts: Object.keys(state.shifts).length, payslips: Object.keys(state.payslips).length }));
+  }
+
+  $('ob-body').addEventListener('click', async (e) => {
+    const id = e.target.id;
+    const step = obSteps()[OB.step];
+    if (id === 'ob-lang-en' || id === 'ob-lang-de') { OB.draft.lang = id.slice(-2); renderOnboarding(); }
+    else if (id === 'ob-back') { if (step === 'contract') readObContract(false); OB.step--; renderOnboarding(); }
+    else if (id === 'ob-next') {
+      if (step === 'contract' && !readObContract(true)) return;
+      OB.step++; renderOnboarding();
+    } else if (id === 'ob-first') {
+      try { await finishOnboarding(); resetForm(); setTab('shifts'); F.from.focus(); } catch (err) { msg('ob-msg', writeError(err), true); }
+    } else if (id === 'ob-restore') { $('restore-file').click(); }
+  });
+
   // ---------- tabs ----------
   const TABS = ['shifts', 'summary', 'account', 'payslip'];
   function renderTab() {
@@ -799,6 +1028,7 @@
     for (const x of TABS) $('tab-' + x).hidden = x !== tab;
     for (const b of document.querySelectorAll('.tabs button')) b.setAttribute('aria-selected', b.dataset.tab === tab);
     try { localStorage.setItem('shiftlog-tab', tab); } catch (e) { /* ignore */ }
+    renderBanners();
     renderTab();
     if (!noScroll) window.scrollTo(0, 0);
   }
@@ -826,12 +1056,37 @@
     }
     await reload();
     F.brk.value = S().defaultBreakMin;
-    setTab(start, true);
+    if (!state.meta.onboarded) { setTab('shifts', true); startOnboarding(); }
+    else setTab(start, true);
     renderPreview();
+    registerWorker();
+  }
+
+  // Offline cache + "new version" banner. The first install claims the page without reloading it
+  // (that would throw away a half-done onboarding); later swaps reload so HTML and JS match.
+  function registerWorker() {
+    if (!('serviceWorker' in navigator) || location.protocol === 'file:') return;
+    const sw = navigator.serviceWorker;
+    const hadController = !!sw.controller;
+    sw.register('sw.js').then((reg) => {
+      const offer = (w) => { if (w && sw.controller) { updateWorker = w; renderBanners(); } };
+      offer(reg.waiting);
+      reg.addEventListener('updatefound', () => {
+        const w = reg.installing;
+        if (w) w.addEventListener('statechange', () => { if (w.state === 'installed') offer(w); });
+      });
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+    }).catch(() => {});
+    let reloading = false;
+    sw.addEventListener('controllerchange', () => {
+      if (reloading || !(hadController || reloadOnSwap)) return;
+      reloading = true;
+      location.reload();
+    });
   }
 
   function showNoStorage() {
-    $('banners').innerHTML = '<div class="banner bad" role="alert"><p>' + esc(t('banner.noStorage')) + '</p></div>';
+    renderBanners();
     for (const el of document.querySelectorAll('main input, main select, main button[type=submit]')) el.disabled = true;
   }
 

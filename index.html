@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Shift Log</title>
 <meta name="description" content="Shift and pay tracker for Adecco temps at Deutsche Post Obertshausen">
+<meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#e7eaed" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0e141b" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -158,6 +159,32 @@
   <div class="wrap">
     <div class="sheet-head"><h2 id="set-title" data-i18n="settings.title">Settings</h2><button class="btn" type="button" id="set-close" data-i18n="common.close">Close</button></div>
     <p class="note" data-i18n="settings.intro">Contract values from the Adecco Einsatzmeldung and the GVP Basistarifwerk 2026. Every change recalculates all shifts.</p>
+    <fieldset><legend data-i18n="settings.language">Language</legend>
+      <div class="choice">
+        <select id="s-lang" aria-label="Language" data-i18n-aria="settings.language"><option value="en" translate="no">English</option><option value="de" translate="no">Deutsch</option></select>
+      </div>
+      <label class="field"><span data-i18n="settings.jobLabel">Job label</span><input id="s-jobLabel" maxlength="80"></label>
+    </fieldset>
+    <fieldset><legend data-i18n="settings.backup">Backup &amp; restore</legend>
+      <p class="note" id="backup-last"></p>
+      <div class="btnrow">
+        <button class="btn primary" type="button" id="backup-btn" data-i18n="backup.save">Save backup</button>
+        <button class="btn" type="button" id="restore-btn" data-i18n="restore.pick">Restore from backup</button>
+        <button class="btn" type="button" id="undo-btn" hidden data-i18n="restore.undo">Undo restore</button>
+      </div>
+      <div id="restore-preview" hidden></div>
+      <p class="msg" id="backup-msg"></p>
+      <p class="msg" id="restore-msg"></p>
+      <label class="field"><span data-i18n="settings.reminderDays">Remind me to back up after (days)</span><input id="s-backupReminderDays" inputmode="numeric"></label>
+    </fieldset>
+    <fieldset><legend data-i18n="settings.storage">Storage</legend>
+      <p id="storage-status"></p>
+      <p class="note" id="storage-counts"></p>
+    </fieldset>
+    <fieldset><legend data-i18n="settings.about">About</legend>
+      <p id="about-version"></p>
+      <p class="note"><a href="https://github.com/Uditp11/shift-log" id="repo-link" target="_blank" rel="noopener" translate="no">GitHub</a></p>
+    </fieldset>
     <form id="set-form" class="wrap" novalidate>
       <fieldset><legend data-i18n="settings.rate">Hourly rate (EG1)</legend>
         <div id="set-rates" class="wrap" style="gap:8px"></div>
