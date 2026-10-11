@@ -16,5 +16,12 @@ On iPhone, deleting the icon deletes your data; on Android, clearing Chrome's si
 
 ## Develop
 - `npm test`: unit tests (pay engine, formatting, language, backup, storage)
-- `npm run e2e`: end-to-end tests in WebKit at iPhone size
+- `npm run e2e`: end-to-end tests in WebKit at iPhone size (light/English, dark/German) and in Chrome at Android size. Without WebKit installed, `CHROMIUM_PATH=/path/to/chrome npm run e2e` runs every project in that Chromium.
 - Every push to `main` runs the tests and deploys to GitHub Pages.
+
+## Release checklist
+1. Bump `APP_VERSION` in `src/version.js` **and** `VERSION` in `sw.js` (the shell test checks they match).
+2. Merge to `main`; CI runs the unit tests and the e2e tests (WebKit and Chrome) and deploys to Pages.
+3. On a real iPhone: open the Home Screen app, wait for "A new version is ready", tap Reload, check Settings → About shows the new version.
+4. On an Android phone: the same check in the installed app from Chrome.
+5. If the release touched storage or the service worker: add a shift, force-quit, reopen, save a backup to iCloud Drive (iPhone) or Google Drive / Files (Android).
