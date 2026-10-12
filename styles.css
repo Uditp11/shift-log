@@ -249,14 +249,41 @@ fieldset { display: flex; flex-direction: column; gap: 12px; min-width: 0; margi
 legend { padding: 0 6px; font-family: var(--display); font-size: 20px; font-weight: 800; }
 .rp { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: end; }
 .csvbox[hidden] { display: none; }
+/* Close stays one tap away; the sheet's top padding moves into the sticky header. */
+#settings { padding-top: 0; scroll-padding-top: calc(84px + env(safe-area-inset-top, 0px)); }
+.sheet-head { position: sticky; top: 0; margin-inline: calc(-1 * var(--gutter)); padding: calc(12px + env(safe-area-inset-top, 0px)) var(--gutter) 12px; border-bottom: 1px solid var(--line); background: var(--bg); z-index: 1; }
+/* The legend sits inside the card as its title (a floated legend is an ordinary flex item). */
+legend { float: left; width: 100%; margin: 0; padding: 0; line-height: 1.1; }
+/* An empty message line takes no room, so Restore is not followed by a blank gap; the text shows after a tap. */
+#settings .msg:empty { display: none; }
+/* Language fills the card like Theme below it (the two-column .choice is onboarding's). */
+#settings .choice { grid-template-columns: 1fr; }
+#settings fieldset p { margin: 0; }
+#settings a { color: var(--ink); text-underline-offset: 3px; }
+/* Rate periods: at phone width the date gets half the row (a third cut it to "09/01/20"); Remove sits under the rate. */
+.rp + .rp { padding-top: 12px; border-top: 1px solid var(--line); }
+@media (max-width: 479px) {
+  .rp { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .rp-del { grid-column: 2; justify-self: end; }
+}
 
 /* ===== 15. Onboarding ===== */
-.ob-step { display: flex; flex-direction: column; gap: 16px; }
-.ob-dots { display: flex; gap: 6px; }
-.ob-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
-.ob-dots i.on { background: var(--accent); }
+.ob-step { display: flex; flex-direction: column; gap: 16px; min-height: calc(100vh - 44px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); min-height: calc(100dvh - 44px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+.ob-brand { display: flex; align-items: center; gap: 12px; font-family: var(--display); font-size: 26px; font-weight: 800; }
+.ob-brand img { width: 56px; height: 56px; border-radius: var(--r-card); }
+.ob-bar { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+.ob-bar i { height: 4px; border-radius: 2px; background: var(--line); }
+.ob-bar i.on { background: var(--accent); }
+.ob-step h2 { font-size: 28px; }
+.ob-step p { margin: 0; }
 .choice { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .choice .btn[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--surface); }
+.ob-lang .btn { min-height: 64px; font-size: 18px; }
+.ob-actions { display: flex; flex-direction: column; gap: 8px; }
+.ob-actions .btn { width: 100%; }
+.ob-nav { display: flex; gap: 8px; margin-top: auto; }
+.ob-nav .btn { flex: 1 1 0; min-height: 48px; }
+.ob-nav .btn.primary { flex-grow: 2; }
 
 /* ===== 16. Small screens ===== */
 @media (max-width: 380px) {

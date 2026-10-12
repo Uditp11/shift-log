@@ -963,12 +963,14 @@
     applyStaticText();
     renderBanners();
     const steps = obSteps(), step = steps[OB.step];
-    const dots = '<div class="ob-dots" aria-hidden="true">' + steps.map((_, i) => '<i class="' + (i === OB.step ? 'on' : '') + '"></i>').join('') + '</div>';
-    const nav = (next) => '<div class="btnrow">' + (OB.step ? '<button class="btn" type="button" id="ob-back">' + esc(t('common.back')) + '</button>' : '') +
+    // Onboarding: icon and name on top, a step bar, the primary action full width at the bottom.
+    const brand = '<div class="ob-brand"><img src="icons/icon.svg" alt="" width="56" height="56">' + (step === 'start' ? '' : '<span>' + esc(t('app.name')) + '</span>') + '</div>';
+    const bar = '<div class="ob-bar" aria-hidden="true">' + steps.map((_, i) => '<i' + (i <= OB.step ? ' class="on"' : '') + '></i>').join('') + '</div>';
+    const nav = (next) => '<div class="ob-nav">' + (OB.step ? '<button class="btn" type="button" id="ob-back">' + esc(t('common.back')) + '</button>' : '') +
       (next ? '<button class="btn primary" type="button" id="ob-next">' + esc(t('common.next')) + '</button>' : '') + '</div>';
     let body = '';
     if (step === 'lang') {
-      body = '<h2 id="ob-title">' + esc(t('ob.lang.title')) + '</h2><div class="choice">' +
+      body = '<h2 id="ob-title">' + esc(t('ob.lang.title')) + '</h2><div class="choice ob-lang">' +
         '<button class="btn" type="button" id="ob-lang-en" aria-pressed="' + (OB.draft.lang === 'en') + '">English</button>' +
         '<button class="btn" type="button" id="ob-lang-de" aria-pressed="' + (OB.draft.lang === 'de') + '">Deutsch</button></div>' + nav(true);
     } else if (step === 'contract') {
@@ -979,11 +981,11 @@
     } else if (step === 'home') {
       body = '<h2 id="ob-title">' + esc(t('ob.home.title')) + '</h2><p>' + esc(homeSteps()) + '</p><p class="note">' + esc(homeWhy()) + '</p>' + nav(true);
     } else {
-      body = '<h2 id="ob-title">' + esc(t('app.name')) + '</h2><p class="note">' + esc(t('ob.data.warning')) + '</p><div class="btnrow">' +
+      body = '<h2 id="ob-title">' + esc(t('app.name')) + '</h2><p class="note">' + esc(t('ob.data.warning')) + '</p><div class="ob-actions">' +
         '<button class="btn primary" type="button" id="ob-first">' + esc(t('ob.firstShift')) + '</button>' +
         '<button class="btn" type="button" id="ob-restore">' + esc(t('ob.restore')) + '</button></div>' + nav(false);
     }
-    $('ob-body').innerHTML = '<div class="ob-step">' + dots + body + '<p class="msg" id="ob-msg" role="status"></p></div>';
+    $('ob-body').innerHTML = '<div class="ob-step">' + brand + bar + body + '<p class="msg" id="ob-msg" role="status"></p></div>';
   }
 
   function readObContract(check) {
