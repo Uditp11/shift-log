@@ -77,3 +77,17 @@ test('index.html declares light and dark so the first paint matches the phone th
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   assert.match(html, /<meta name="color-scheme" content="light dark">/);
 });
+
+test('the theme is applied in <head> before the stylesheet loads, so the first paint has the right theme', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const head = html.slice(0, html.indexOf('</head>'));
+  const lib = head.indexOf('<script src="src/theme.js"></script>');
+  const call = head.indexOf('<script>Theme.apply(document, Theme.read());</script>');
+  const css = head.indexOf('<link rel="stylesheet" href="styles.css">');
+  assert.ok(lib > 0, 'theme.js is loaded in <head>');
+  assert.ok(call > lib, 'the choice is applied right after');
+  assert.ok(css > call, 'before the stylesheet');
+  assert.ok(head.lastIndexOf('name="theme-color"') < lib, 'the theme-color tags exist when it runs');
+  assert.ok(head.indexOf('name="color-scheme"') < lib, 'the color-scheme tag exists when it runs');
+  assert.ok(sw.includes("'src/theme.js'"), 'theme.js is in the offline SHELL');
+});
