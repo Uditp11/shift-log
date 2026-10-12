@@ -49,15 +49,19 @@ test('Summary leads with gross and net, and the bonus table has three columns', 
 });
 
 // Beyond the 390/412 px phones: a 320 px phone, and an iPhone SE in landscape (568 px), where the
-// five-column German "Earned value" table used to be too wide for the card.
+// five-column German "Earned value" table used to be too wide for the card. Tabs are switched at the
+// profile's own size: after a resize to 568 × 320, WebKit's iPhone emulation reports the fixed tab bar
+// as outside the viewport and won't click it.
 test('tables and tiles also fit at 320 px and in 568 px landscape', async ({ page }) => {
-  for (const size of [{ width: 320, height: 640 }, { width: 568, height: 320 }]) {
-    await page.setViewportSize(size);
-    await page.click('button[data-tab=summary]');
-    await page.evaluate(() => { for (const b of document.querySelectorAll('#sum-tiles .tile b')) b.textContent = '€ 9.999,99'; });
-    expect(await page.evaluate(overflowing), 'summary ' + size.width).toEqual([]);
-    await page.click('button[data-tab=account]');
-    expect(await page.evaluate(overflowing), 'account ' + size.width).toEqual([]);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'page ' + size.width).toBe(true);
+  const own = page.viewportSize();
+  for (const tab of ['summary', 'account']) {
+    await page.click('button[data-tab=' + tab + ']');
+    if (tab === 'summary') await page.evaluate(() => { for (const b of document.querySelectorAll('#sum-tiles .tile b')) b.textContent = '€ 9.999,99'; });
+    for (const size of [{ width: 320, height: 640 }, { width: 568, height: 320 }]) {
+      await page.setViewportSize(size);
+      expect(await page.evaluate(overflowing), tab + ' ' + size.width).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), tab + ' page ' + size.width).toBe(true);
+    }
+    await page.setViewportSize(own);
   }
 });
