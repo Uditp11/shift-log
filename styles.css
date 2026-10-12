@@ -215,9 +215,12 @@ input:disabled, select:disabled, button:disabled { opacity: .45; cursor: not-all
 .tile b { overflow: hidden; font-family: var(--display); font-size: 26px; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; white-space: nowrap; text-overflow: ellipsis; }
 .tile small { font-size: 13px; color: var(--muted); }
 .tile.neg b { color: var(--bad); }
+.tile.lead b { font-size: 32px; }
+.tile.wide { grid-column: 1 / -1; }
+@media (min-width: 560px) { .tile.wide { grid-column: span 2; } }
 
 /* ===== 12. Tables ===== */
-.tablewrap { overflow-x: auto; }
+.tablewrap { min-width: 0; }
 table { width: 100%; border-collapse: collapse; font-size: 15px; }
 th, td { padding: 10px 6px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
 th:first-child, td:first-child { padding-left: 0; text-align: left; }
@@ -231,6 +234,22 @@ tr.cur td { background: var(--surface-2); }
 .neg { color: var(--bad); }
 .pos { color: var(--good); }
 .est { font-size: 12px; font-weight: 600; color: var(--muted); }
+td:first-child { white-space: normal; }
+td small { display: block; font-size: 13px; font-weight: 400; color: var(--muted); }
+/* Stacked rows on phones: the first cell is the row's title, the other cells sit in equal mini-columns,
+   each under its column name (data-label). The header row stays in the page for screen readers. */
+@media (max-width: 519.98px) {
+  table.stack, table.stack tbody, table.stack td { display: block; }
+  table.stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  table.stack tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 12px; padding: 12px 8px; border-bottom: 1px solid var(--line); }
+  table.stack.c2 tr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  table.stack.c4 tr { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  table.stack tr.cur { border-radius: var(--r-ctl); background: var(--surface-2); }
+  table.stack tr.cur td { background: none; }
+  table.stack td { padding: 0; border: 0; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+  table.stack td:first-child { grid-column: 1 / -1; font-weight: 600; }
+  table.stack td[data-label]::before { content: attr(data-label); display: block; font-size: 12px; font-weight: 600; line-height: 1.3; color: var(--muted); }
+}
 
 /* ===== 13. Charts ===== */
 .chart { position: relative; }

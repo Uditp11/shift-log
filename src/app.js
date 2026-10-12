@@ -480,24 +480,27 @@
     const tot = map[state.sumKey];
     const s = S();
     const ratioNote = t(s.netRatioCalibrated ? 'summary.ratioCalibrated' : 'summary.ratioDefault', { r: nf4.format(s.netRatio) });
-    const tile = (label, v, sub) => '<div class="tile"><span class="label">' + esc(label) + '</span><b>' + v + '</b><small>' + esc(sub) + '</small></div>';
+    const tile = (label, v, sub, cls) => '<div class="tile' + (cls ? ' ' + cls : '') + '"><span class="label">' + esc(label) + '</span><b>' + v + '</b><small>' + esc(sub) + '</small></div>';
+    // Pay first: gross and net lead, hours and bonuses follow.
     $('sum-tiles').innerHTML =
+      tile(t('summary.gross'), eur(tot.gross), t('summary.avg', { v: eur(tot.avgPerH) }), 'lead') +
+      tile(t('summary.net'), eur(tot.net), ratioNote, 'lead') +
       tile(t('summary.hours'), n2(tot.paidH), t(tot.shifts === 1 ? 'summary.shiftsWorkedOne' : 'summary.shiftsWorked', { n: tot.shifts })) +
-      tile(t('summary.gross'), eur(tot.gross), t('summary.avg', { v: eur(tot.avgPerH) })) +
-      tile(t('summary.net'), eur(tot.net), ratioNote) +
       tile(t('summary.bonuses'), eur(tot.premium), t('summary.taxFree'));
     const pb = tot.premiumBreakdown;
-    const row = (name, pct, h, v) => '<tr><td>' + esc(name) + '</td><td>' + pct + '</td><td>' + hrs(h) + '</td><td>' + eur(v) + '</td></tr>';
+    // Three columns so nothing scrolls at 390 px: the rate is the type cell's second line.
+    const row = (name, sub, h, v, cls) => '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + esc(name) + (sub ? '<small>' + esc(sub) + '</small>' : '') +
+      '</td><td>' + (h == null ? '' : hrs(h)) + '</td><td>' + eur(v) + '</td></tr>';
     const rate = C.rateFor(tot.items[0].shift.date, s);
-    $('sum-table').innerHTML = '<table><thead><tr><th>' + esc(t('summary.colType')) + '</th><th>' + esc(t('summary.colRate')) + '</th><th>' + esc(t('summary.colHours')) +
+    $('sum-table').innerHTML = '<table><thead><tr><th>' + esc(t('summary.colType')) + '</th><th>' + esc(t('summary.colHours')) +
       '</th><th>' + esc(t('summary.colAmount')) + '</th></tr></thead><tbody>' +
       row(t('summary.rowNight'), s.nightPct + ' %', tot.nightH, pb.night) +
       row(t('summary.rowSunday'), s.sundayPct + ' %', tot.sundayH, pb.sunday) +
       row(t('summary.rowHoliday'), s.holidayPct + ' %', tot.holidayH, pb.holiday) +
       row(t('summary.rowEve'), s.eveAfter14Pct + ' %', tot.eveH, pb.eve) +
-      '<tr class="total"><td>' + esc(t('summary.bonuses')) + '</td><td></td><td>' + hrs(tot.bonusH) + '</td><td>' + eur(tot.premium) + '</td></tr>' +
-      '<tr><td>' + esc(t('summary.basePay')) + '</td><td>' + eur(rate) + '</td><td>' + hrs(tot.paidH) + '</td><td>' + eur(tot.base) + '</td></tr>' +
-      '<tr class="total"><td>' + esc(t('summary.gross')) + '</td><td></td><td></td><td>' + eur(tot.gross) + '</td></tr></tbody></table>' +
+      row(t('summary.bonuses'), '', tot.bonusH, tot.premium, 'total') +
+      row(t('summary.basePay'), eur(rate) + '/h', tot.paidH, tot.base) +
+      row(t('summary.gross'), '', null, tot.gross, 'total') + '</tbody></table>' +
       '<p class="note">' + esc(t('summary.note')) + '</p>';
     $('sum-table-title').textContent = t('summary.breakdown') + ' · ' + (mode === 'week' ? kw(C.isoWeek(tot.items[0].shift.date).week) : monthName(state.sumKey));
 
@@ -521,6 +524,8 @@
   $('sum-period').addEventListener('change', (e) => { state.sumKey = e.target.value; renderSummary(); });
 
   // ---------- Time account tab ----------
+  // Cells for stacked rows on phones (styles.css table.stack): each cell carries its column name.
+  const td = (label, html, cls) => '<td data-label="' + esc(label) + '"' + (cls ? ' class="' + cls + '"' : '') + '>' + html + '</td>';
   function balanceUpTo() {
     const s = S(), { all } = calc();
     let d = todayStr();
@@ -538,9 +543,9 @@
     const now = pts.length ? pts[pts.length - 1].balance : 0;
     const curYm = upto.slice(0, 7);
     const cur = ta.rows.find((r) => r.ym === curYm) || { target: 0, workedH: 0 };
-    const tile = (label, v, sub, neg) => '<div class="tile' + (neg ? ' neg' : '') + '"><span class="label">' + esc(label) + '</span><b>' + v + '</b><small>' + esc(sub) + '</small></div>';
+    const tile = (label, v, sub, neg, cls) => '<div class="tile' + (neg ? ' neg' : '') + (cls ? ' ' + cls : '') + '"><span class="label">' + esc(label) + '</span><b>' + v + '</b><small>' + esc(sub) + '</small></div>';
     $('acc-tiles').innerHTML =
-      tile(t('account.balance'), sHrs(now), t('account.asOf', { date: dmy(upto) }), r2(now) < 0) +
+      tile(t('account.balance'), sHrs(now), t('account.asOf', { date: dmy(upto) }), r2(now) < 0, 'lead wide') +
       tile(t('account.sollMonth', { m: monthShort(curYm) }), n2(cur.target), t('account.workedSoFar', { h: hrs(cur.workedH) })) +
       tile(t('account.stillToWork'), n2(Math.max(0, cur.target - cur.workedH)), t('account.toReach', { month: monthName(curYm) })) +
       tile(t('account.cap'), '≈ ' + n2(ta.cap), t('account.capNote', { h: n2(s.weeklyHours) }));
@@ -549,22 +554,24 @@
     const ov = s.monthTargetOverride || {};
     const th = (k) => '<th>' + esc(t(k)) + '</th>';
     $('acc-table').innerHTML = !ta.rows.length ? emptyState('i-bank', t('account.noMonths')) :
-      '<table><thead><tr>' + th('account.colMonth') + th('account.soll') + th('account.colWorked') + '<th>Δ</th>' + th('account.balance') + '</tr></thead><tbody>' +
+      '<table class="stack c4"><thead><tr>' + th('account.colMonth') + th('account.soll') + th('account.colWorked') + '<th>Δ</th>' + th('account.balance') + '</tr></thead><tbody>' +
       ta.rows.map((r) => '<tr' + (r.ym === curYm ? ' class="cur"' : '') + '><td>' + esc(monthName(r.ym)) +
         (r.ym === curYm && upto < r.ym + '-' + pad(C.daysInMonth(r.ym)) ? ' <span class="small muted">' + esc(t('account.inProgress')) + '</span>' : '') +
         (ov[r.ym] != null ? ' <span class="small muted">' + esc(t('account.sollFromPayslip')) + '</span>' : '') + '</td>' +
-        '<td>' + n2(r.target) + '</td><td>' + n2(r.workedH) + '</td><td class="' + (r2(r.delta) < 0 ? 'neg' : 'pos') + '">' + sHrs(r.delta).replace(' h', '') + '</td>' +
-        '<td class="' + (r2(r.balance) < 0 ? 'neg' : 'pos') + '">' + sHrs(r.balance).replace(' h', '') + '</td></tr>').join('') +
+        td(t('account.soll'), n2(r.target)) + td(t('account.colWorked'), n2(r.workedH)) +
+        td('Δ', sHrs(r.delta).replace(' h', ''), r2(r.delta) < 0 ? 'neg' : 'pos') +
+        td(t('account.balance'), sHrs(r.balance).replace(' h', ''), r2(r.balance) < 0 ? 'neg' : 'pos') + '</tr>').join('') +
       '</tbody></table><p class="note">' + esc(t('account.tableNote', { h: n2(C.absenceCreditH(s)) })) + '</p>';
 
     $('acc-compare').innerHTML = !ta.rows.length ? '' :
-      '<table><thead><tr>' + th('account.colMonth') + th('account.colEarned') + th('account.colExpected') + th('account.colDiff') + th('account.colDeltaRate') + '</tr></thead><tbody>' +
+      '<table class="stack c2"><thead><tr>' + th('account.colMonth') + th('account.colEarned') + th('account.colExpected') + th('account.colDiff') + th('account.colDeltaRate') + '</tr></thead><tbody>' +
       ta.rows.map((r) => {
         const p = C.expectedPayslip(r.ym, all, s);
         const diff = p.earnedValue - (p.fixedPay + p.bonuses);
-        return '<tr><td>' + esc(monthName(r.ym)) + '</td><td>' + eur(p.earnedValue) + '</td><td>' + eur(p.expectedGross) +
-          (p.overtimeEst ? '<br><span class="est">' + esc(t('account.inclOvertime', { v: eur(p.overtimeEst) })) + '</span>' : '') + '</td>' +
-          '<td class="' + (r2(diff) < 0 ? 'neg' : 'pos') + '">' + sEur(diff) + '</td><td>' + sHrs(p.paidH - p.target).replace(' h', '') + ' × ' + n2(p.rate) + '</td></tr>';
+        return '<tr><td>' + esc(monthName(r.ym)) + '</td>' + td(t('account.colEarned'), eur(p.earnedValue)) +
+          td(t('account.colExpected'), eur(p.expectedGross) + (p.overtimeEst ? '<br><span class="est">' + esc(t('account.inclOvertime', { v: eur(p.overtimeEst) })) + '</span>' : '')) +
+          td(t('account.colDiff'), sEur(diff), r2(diff) < 0 ? 'neg' : 'pos') +
+          td(t('account.colDeltaRate'), sHrs(p.paidH - p.target).replace(' h', '') + ' × ' + n2(p.rate)) + '</tr>';
       }).join('') + '</tbody></table>' +
       '<p class="note">' + esc(t('account.compareTableNote')) + '</p>';
   }
@@ -622,10 +629,12 @@
         const d = +act - exp, ok = kind === 'h' ? Math.abs(d) <= 0.05 : Math.abs(d) <= 1;
         diff = '<span class="pill ' + (ok ? 'ok' : 'no') + '">' + (kind === 'h' ? sHrs(d) : sEur(d)) + '</span>';
       }
-      return '<tr><td>' + esc(name) + (sub ? '<br><span class="est">' + esc(sub) + '</span>' : '') + '</td><td>' + fmt(exp) + '</td><td>' +
-        (act != null && act !== '' ? fmt(+act) : '<span class="muted">—</span>') + '</td><td>' + diff + '</td></tr>';
+      return '<tr><td>' + esc(name) + (sub ? '<br><span class="est">' + esc(sub) + '</span>' : '') + '</td>' +
+        td(t('payslip.colExpected'), fmt(exp)) +
+        td(t('payslip.colPayslip'), act != null && act !== '' ? fmt(+act) : '<span class="muted">—</span>') +
+        td(t('payslip.colDiff'), diff) + '</tr>';
     };
-    $('ps-table').innerHTML = '<table><thead><tr><th>' + esc(monthName(ym)) + '</th><th>' + esc(t('payslip.colExpected')) + '</th><th>' + esc(t('payslip.colPayslip')) +
+    $('ps-table').innerHTML = '<table class="stack"><thead><tr><th>' + esc(monthName(ym)) + '</th><th>' + esc(t('payslip.colExpected')) + '</th><th>' + esc(t('payslip.colPayslip')) +
       '</th><th>' + esc(t('payslip.colDiff')) + '</th></tr></thead><tbody>' +
       line(t('payslip.rowGross'), p.expectedGross, a.grossTotal, 'eur', p.overtimeEst ? t('payslip.inclOvertime', { v: eur(p.overtimeEst) }) : '') +
       line(t('payslip.rowNet'), p.expectedNet, a.netTotal, 'eur', t('payslip.estimate')) +
