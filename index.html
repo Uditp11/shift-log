@@ -15,6 +15,8 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<script src="src/theme.js"></script>
+<script>Theme.apply(document, Theme.read());</script>
 <link rel="stylesheet" href="styles.css">
 <style>:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); } body { margin: 0; } [hidden] { display: none !important; } img { max-width: 100%; }</style>
 </head>
@@ -172,6 +174,13 @@
       <div class="choice">
         <select id="s-lang" aria-label="Language" data-i18n-aria="settings.language"><option value="en" translate="no">English</option><option value="de" translate="no">Deutsch</option></select>
       </div>
+      <label class="field"><span data-i18n="settings.theme">Theme</span>
+        <select id="s-theme">
+          <option value="system" data-i18n="theme.system">Same as phone</option>
+          <option value="light" data-i18n="theme.light">Light</option>
+          <option value="dark" data-i18n="theme.dark">Dark</option>
+        </select>
+      </label>
       <label class="field"><span data-i18n="settings.jobLabel">Job label</span><input id="s-jobLabel" maxlength="80"></label>
     </fieldset>
     <fieldset><legend data-i18n="settings.backup">Backup &amp; restore</legend>

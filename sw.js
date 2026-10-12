@@ -8,6 +8,7 @@ const SHELL = [
   'styles.css',
   'manifest.webmanifest',
   'src/version.js',
+  'src/theme.js',
   'src/calc.js',
   'src/format.js',
   'src/i18n.js',
