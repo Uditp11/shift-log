@@ -173,11 +173,24 @@
     }
     return best;
   }
+  // The break and note row's summary: the break in the preview's words, plus "· Note".
+  function renderMoreSummary(sh, r) {
+    let text;
+    if (sh.status !== 'worked') text = t('common.note');
+    else if (r) text = r.breakMin ? t(S().breakPaid ? 'shifts.breakPaid' : 'shifts.breakUnpaid', { from: r.breakFrom, till: r.breakTill }) : t('shifts.noBreak');
+    else text = sh.breakMin ? t('shifts.break') + ': ' + sh.breakMin : t('shifts.noBreak');
+    if (sh.status === 'worked' && sh.note) text += ' · ' + t('common.note');
+    // Only touch the text when it changes: blur re-renders this mid-tap, and WebKit drops the tap on the
+    // fold row if the text node under the finger was replaced between touch start and end.
+    if ($('f-more-sum').textContent !== text) $('f-more-sum').textContent = text;
+  }
   function renderPreview() {
     const el = $('preview');
     const sh = formShift();
     const worked = sh.status === 'worked';
     for (const k of ['from', 'till', 'bs', 'brk']) F[k].disabled = !worked;
+    el.className = 'preview';
+    renderMoreSummary(sh, null);
     if (!sh.date) { el.innerHTML = '<p class="muted small">' + esc(t('shifts.pickDate')) + '</p>'; return; }
     let clash = '';
     if (state.shifts[sh.date] && state.editing !== sh.date) {
@@ -195,20 +208,23 @@
       return;
     }
     const r = C.calcShift(sh, S(), prevWorkedBefore(sh.date));
+    renderMoreSummary(sh, r);
     const nextDay = C.parseHM(sh.till) <= C.parseHM(sh.from);
-    const cell = (label, v) => '<div><span class="label">' + esc(label) + '</span><b>' + v + '</b></div>';
-    let grid = cell(t('shifts.pv.paid'), hrs(r.paidH)) + cell(t('shifts.pv.night'), hrs(r.nightH));
-    if (r.sundayH) grid += cell(t('shifts.pv.sunday'), hrs(r.sundayH));
-    if (r.holidayH) grid += cell(t('shifts.pv.holiday'), hrs(r.holidayH));
-    if (r.eveH) grid += cell(t('shifts.pv.eve'), hrs(r.eveH));
-    grid += cell(t('shifts.pv.base'), eur(r.base)) + cell(t('shifts.pv.bonuses'), eur(r.premium)) + cell(t('shifts.pv.rate'), eur(r.rate) + '/h');
     const brk = r.breakMin ? t(S().breakPaid ? 'shifts.breakPaid' : 'shifts.breakUnpaid', { from: r.breakFrom, till: r.breakTill }) : t('shifts.noBreak');
+    // Where the money comes from: base, each bonus calc.js already split out, the bonus total.
+    const line = (label, v, cls) => '<div class="pv-line' + (cls ? ' ' + cls : '') + '"><span>' + esc(label) + '</span><b>' + v + '</b></div>';
+    let lines = line(t('shifts.pv.base') + ' · ' + hrs(r.paidH) + ' × ' + eur(r.rate), eur(r.base));
+    for (const [cat, key, h] of [['night', 'shifts.pv.night', r.nightH], ['sunday', 'shifts.pv.sunday', r.sundayH], ['holiday', 'shifts.pv.holiday', r.holidayH], ['eve', 'shifts.pv.eve', r.eveH]]) {
+      if (r2(r.premiumBreakdown[cat]) > 0) lines += line(t(key) + ' · ' + hrs(h), '+ ' + eur(r.premiumBreakdown[cat]), 'bonus');
+    }
+    if (r2(r.premium) > 0) lines += line(t('shifts.pv.bonuses'), eur(r.premium), 'bonus total');
+    el.className = 'preview pv-on';
     el.innerHTML =
-      '<div class="pv-head"><div><div class="label">' + esc(t('shifts.pvTitle')) + '</div><div class="pv-gross">' + eur(r.gross) + '</div></div>' +
-      '<div class="small muted mono">' + esc(sh.from) + ' → ' + esc(sh.till) + (nextDay ? ' ' + esc(t('shifts.nextDay')) : '') +
-      '<br>' + esc(brk) + '</div></div>' +
+      '<div class="kicker">' + esc(t('shifts.pvTitle')) + '</div><div class="pv-gross">' + eur(r.gross) + '</div>' +
+      '<p class="pv-when">' + esc(wd(sh.date) + ' ' + dm(sh.date)) + ' · <span class="mono">' + esc(sh.from) + ' → ' + esc(sh.till) + '</span>' +
+      (nextDay ? ' ' + esc(t('shifts.nextDay')) : '') + '</p>' +
       '<div>' + stripHtml(sh, r) + stripAxis + '</div>' + stripLegend() +
-      '<div class="pv-grid">' + grid + '</div>' + warnList(r.warnings) + clash;
+      '<div class="pv-lines">' + lines + '</div><p class="pv-break">' + esc(brk) + '</p>' + warnList(r.warnings) + clash;
   }
 
   function topTimes(field, fallback) {
@@ -232,6 +248,19 @@
     mk('chips-till', topTimes('till', ['06:30']), F.till);
   }
 
+  // "This week": today's ISO week, once any shift exists. It is .week-now, not .week-head,
+  // because the e2e tests read the first .week-head as the latest week in the list.
+  function renderWeekNow() {
+    const el = $('week-now');
+    const { all, weeks } = calc();
+    el.hidden = !all.length;
+    if (!all.length) return;
+    const wk = C.isoWeek(todayStr());
+    const w = weeks[wk.key] || { paidH: 0, gross: 0 };
+    el.innerHTML = '<div><div class="wn-kw">' + esc(kw(wk.week)) + '</div><p>' + dm(wk.monday) + '–' + dm(wk.sunday) + ' · ' + hrs(w.paidH) + '</p></div>' +
+      '<b class="wn-gross">' + eur(w.gross) + '</b>';
+  }
+
   // Form heading and save button follow the edit state; applyStaticText calls this so a language
   // switch or a reload mid-edit keeps "Edit Mon 05.10." instead of resetting to "Add shift".
   function renderFormHead() {
@@ -245,6 +274,7 @@
     F.status.value = 'worked';
     if (!keepTimes) { F.from.value = ''; F.till.value = ''; F.brk.value = S().defaultBreakMin; }
     F.bs.value = ''; F.note.value = '';
+    $('f-more').open = false;
     renderFormHead();
     $('f-delete').hidden = true; disarm($('f-delete'));
     $('f-cancel').hidden = true;
@@ -257,6 +287,7 @@
     F.from.value = sh.from || ''; F.till.value = sh.till || '';
     F.brk.value = sh.breakMin == null ? S().defaultBreakMin : sh.breakMin;
     F.bs.value = sh.breakStart || ''; F.note.value = sh.note || '';
+    $('f-more').open = (sh.breakMin != null && +sh.breakMin !== +S().defaultBreakMin) || !!sh.breakStart || !!sh.note;
     renderFormHead();
     $('f-delete').hidden = false; disarm($('f-delete'));
     $('f-cancel').hidden = false;
@@ -277,15 +308,16 @@
 
   function msg(id, text, err) { const el = $(id); el.textContent = text; el.className = 'msg' + (err ? ' err' : ''); }
 
-  $('shift-form').addEventListener('input', (e) => { if (e.target !== F.note) renderPreview(); });
-  for (const k of ['from', 'till', 'bs']) F[k].addEventListener('blur', () => { const n = normTime(F[k].value); if (n) F[k].value = n; renderPreview(); });
+  $('shift-form').addEventListener('input', () => renderPreview());
+  // The input listener already rendered the current value; re-render on blur only when normalising changed it.
+  for (const k of ['from', 'till', 'bs']) F[k].addEventListener('blur', () => { const n = normTime(F[k].value); if (n && n !== F[k].value) { F[k].value = n; renderPreview(); } });
   $('shift-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const sh = formShift();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(sh.date)) return msg('f-msg', t('shifts.errDate'), true);
     if (sh.status === 'worked') {
       if (!sh.from || !sh.till) return msg('f-msg', t('shifts.errTimes'), true);
-      if (F.bs.value.trim() && !sh.breakStart) return msg('f-msg', t('shifts.errBreakStart'), true);
+      if (F.bs.value.trim() && !sh.breakStart) { $('f-more').open = true; F.bs.focus(); return msg('f-msg', t('shifts.errBreakStart'), true); }
       F.from.value = sh.from; F.till.value = sh.till;
     }
     const old = state.editing;
@@ -318,7 +350,7 @@
     for (const k of keys) {
       const w = weeks[k];
       const wk = C.isoWeek(w.items[0].shift.date);
-      html += '<section class="week"><div class="week-head"><h3>' + esc(kw(wk.week)) + ' <span class="small muted" style="font-family:var(--body);font-weight:500">' + dm(wk.monday) + '–' + dm(wk.sunday) + '</span></h3>' +
+      html += '<section class="week"><div class="week-head"><h3>' + esc(kw(wk.week)) + ' <span class="wk-range">' + dm(wk.monday) + '–' + dm(wk.sunday) + '</span></h3>' +
         '<span class="num">' + hrs(w.paidH) + ' · ' + eur(w.gross) + '</span></div><div class="rows">';
       for (const it of w.items) {
         const sh = it.shift, r = it.r;
@@ -842,15 +874,17 @@
     if (!store && state.loaded) out.push(banner('bad', t('banner.noStorage')));
     if (updateWorker) out.push(banner('warn', t('banner.update'), '', [['update-reload', t('banner.reload')]]));
     if (store && !isStandalone()) out.push(banner('info', t('banner.safari'), '', null, { text: homeSteps(), open: howOpen }));
-    const due = store && state.tab === 'shifts' && Backup.backupDue(state.meta, S(), Object.keys(state.shifts).length, new Date());
-    if (due) out.push(banner('warn', due.never ? t('banner.neverBackedUp') : t('banner.backupDue', { when: whenText(state.meta.lastBackupAt) }), '', [['backup-now', t('backup.save')]]));
     $('banners').innerHTML = out.join('');
+    // The backup reminder sits under the shift form: at the top it pushed the pay below the fold,
+    // and the header's status line already says "No backup yet".
+    const due = store && state.tab === 'shifts' && Backup.backupDue(state.meta, S(), Object.keys(state.shifts).length, new Date());
+    $('backup-banner').innerHTML = due ? banner('warn', due.never ? t('banner.neverBackedUp') : t('banner.backupDue', { when: whenText(state.meta.lastBackupAt) }), '', [['backup-now', t('backup.save')]]) : '';
   }
 
   $('banners').addEventListener('click', (e) => {
-    if (e.target.id === 'backup-now') doBackup('f-msg');
     if (e.target.id === 'update-reload' && updateWorker) { reloadOnSwap = true; updateWorker.postMessage('SKIP_WAITING'); }
   });
+  $('backup-banner').addEventListener('click', (e) => { if (e.target.id === 'backup-now') doBackup('f-msg'); });
 
   // ---------- backup ----------
   // Must not await before shareFile(): iOS needs the tap's user activation for the share sheet.
@@ -1035,7 +1069,7 @@
   // ---------- tabs ----------
   const TABS = ['shifts', 'summary', 'account', 'payslip'];
   function renderTab() {
-    if (state.tab === 'shifts') { renderChips(); renderShiftList(); }
+    if (state.tab === 'shifts') { renderChips(); renderWeekNow(); renderShiftList(); }
     else if (state.tab === 'summary') renderSummary();
     else if (state.tab === 'account') renderAccount();
     else if (state.tab === 'payslip') renderPayslip();
