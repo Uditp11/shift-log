@@ -49,25 +49,19 @@ test('Summary leads with gross and net, and the bonus table has three columns', 
 });
 
 // Beyond the 390/412 px phones: a 320 px phone, and an iPhone SE in landscape (568 px), where the
-// five-column German "Earned value" table used to be too wide for the card. Tabs are switched at the
-// profile's own size: after a resize, WebKit's iPhone emulation may zoom out and then won't click the
-// fixed tab bar.
-test('tables and tiles also fit at 320 px and in 568 px landscape', async ({ page }) => {
-  const own = page.viewportSize();
-  for (const tab of ['summary', 'account']) {
-    await page.click('button[data-tab=' + tab + ']');
-    if (tab === 'summary') await page.evaluate(() => { for (const b of document.querySelectorAll('#sum-tiles .tile b')) b.textContent = '€ 9.999,99'; });
-    for (const size of [{ width: 320, height: 640 }, { width: 568, height: 320 }]) {
-      await page.setViewportSize(size);
-      expect(await page.evaluate(overflowing), tab + ' ' + size.width).toEqual([]);
-      // The page itself: no element reaches past the layout width. (Not scrollWidth: after a resize, WebKit's
-      // iPhone emulation zooms out and reports a wider scrollWidth with nothing actually there.)
-      expect(await page.evaluate(() => {
-        const w = document.documentElement.clientWidth;
-        return [...document.querySelectorAll('body *')].filter((el) => el.getBoundingClientRect().right > w + 0.5)
-          .map((el) => el.tagName + (el.id ? '#' + el.id : '') + ' ' + Math.round(el.getBoundingClientRect().right) + '>' + w);
-      }), tab + ' page ' + size.width).toEqual([]);
-    }
-    await page.setViewportSize(own);
-  }
-});
+// four-column tiles and the five-column tables used to be too wide. Each size gets a fresh page
+// opened at that size: resizing a running page makes WebKit's iPhone emulation zoom out and lay the
+// fixed tab bar out against the old viewport, which a real phone never does.
+for (const viewport of [{ width: 320, height: 640 }, { width: 568, height: 320 }]) {
+  test.describe(viewport.width + ' px', () => {
+    test.use({ viewport });
+    test('tables, tiles and the page fit at ' + viewport.width + ' px', async ({ page }) => {
+      await page.click('button[data-tab=summary]');
+      await page.evaluate(() => { for (const b of document.querySelectorAll('#sum-tiles .tile b')) b.textContent = '€ 9.999,99'; });
+      expect(await page.evaluate(overflowing), 'summary').toEqual([]);
+      await page.click('button[data-tab=account]');
+      expect(await page.evaluate(overflowing), 'account').toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'page').toBe(true);
+    });
+  });
+}
