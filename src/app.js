@@ -687,6 +687,7 @@
     $('s-holidays').value = (s.holidays || []).join('\n'); $('s-eveDates').value = (s.eveDates || []).join('\n');
     $('s-overrides').value = Object.keys(s.monthTargetOverride || {}).sort().map((k) => k + ' = ' + numIn(s.monthTargetOverride[k])).join('\n');
     $('s-lang').value = s.lang;
+    $('s-theme').value = Theme.read();
     $('s-jobLabel').value = s.jobLabel || '';
     $('s-backupReminderDays').value = s.backupReminderDays;
     fillSettingsInfo();
@@ -929,6 +930,8 @@
     try { await write('settings/settings', s); relabelSettings(); renderPreview(); }
     catch (err) { msg('set-msg', writeError(err), true); }
   });
+  // ---------- theme (this phone only, applies at once, like language; src/theme.js) ----------
+  $('s-theme').addEventListener('change', (e) => { Theme.save(e.target.value); Theme.apply(document, e.target.value); });
   // Text that app.js builds inside the settings sheet; the inputs keep their (maybe unsaved) values.
   function relabelSettings() {
     for (const row of $('set-rates').querySelectorAll('.rp')) {
