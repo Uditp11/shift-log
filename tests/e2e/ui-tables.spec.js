@@ -60,7 +60,14 @@ test('tables and tiles also fit at 320 px and in 568 px landscape', async ({ pag
     for (const size of [{ width: 320, height: 640 }, { width: 568, height: 320 }]) {
       await page.setViewportSize(size);
       expect(await page.evaluate(overflowing), tab + ' ' + size.width).toEqual([]);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), tab + ' page ' + size.width).toBe(true);
+      // The page itself: compare against the layout width (clientWidth), and name the widest elements if it fails.
+      const page_ = await page.evaluate(() => {
+        const de = document.documentElement;
+        const wide = [...document.querySelectorAll('body *')].filter((el) => el.getBoundingClientRect().right > de.clientWidth + 0.5)
+          .slice(0, 5).map((el) => el.tagName + (el.id ? '#' + el.id : '') + '.' + el.className + ' ' + Math.round(el.getBoundingClientRect().right));
+        return { scroll: de.scrollWidth, client: de.clientWidth, inner: innerWidth, wide };
+      });
+      expect(page_.scroll, tab + ' page ' + size.width + ' ' + JSON.stringify(page_)).toBeLessThanOrEqual(page_.client);
     }
     await page.setViewportSize(own);
   }
