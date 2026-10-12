@@ -134,7 +134,7 @@ input:disabled, select:disabled, button:disabled { opacity: .45; cursor: not-all
 .msg { min-height: 1.3em; margin: 0; font-size: 14px; color: var(--muted); }
 .msg.err { color: var(--bad); }
 .check { display: flex; align-items: center; gap: 12px; min-height: 44px; }
-.check input { width: 22px; height: 22px; min-height: 22px; accent-color: var(--accent); }
+.check input { flex: none; width: 22px; height: 22px; min-height: 22px; accent-color: var(--accent); }
 .note { margin: 0; max-width: 65ch; font-size: 13px; line-height: 1.45; color: var(--muted); }
 .empty { padding: 24px 16px; text-align: center; color: var(--muted); }
 .empty svg { display: block; width: 32px; height: 32px; margin: 0 auto 8px; }
@@ -312,6 +312,8 @@ legend { float: left; width: 100%; margin: 0; padding: 0; line-height: 1.1; }
 #settings .choice { grid-template-columns: 1fr; }
 #settings fieldset p { margin: 0; }
 #settings a { color: var(--ink); text-underline-offset: 3px; }
+/* The GitHub link is a tap target too: 44 × 44 px, like every other control. */
+#repo-link { display: inline-flex; align-items: center; min-width: 44px; min-height: 44px; }
 /* Rate periods: at phone width the date gets half the row (a third cut it to "09/01/20"); Remove sits under the rate. */
 .rp + .rp { padding-top: 12px; border-top: 1px solid var(--line); }
 @media (max-width: 479px) {
