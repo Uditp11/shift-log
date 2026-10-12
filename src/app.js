@@ -180,7 +180,9 @@
     else if (r) text = r.breakMin ? t(S().breakPaid ? 'shifts.breakPaid' : 'shifts.breakUnpaid', { from: r.breakFrom, till: r.breakTill }) : t('shifts.noBreak');
     else text = sh.breakMin ? t('shifts.break') + ': ' + sh.breakMin : t('shifts.noBreak');
     if (sh.status === 'worked' && sh.note) text += ' · ' + t('common.note');
-    $('f-more-sum').textContent = text;
+    // Only touch the text when it changes: blur re-renders this mid-tap, and WebKit drops the tap on the
+    // fold row if the text node under the finger was replaced between touch start and end.
+    if ($('f-more-sum').textContent !== text) $('f-more-sum').textContent = text;
   }
   function renderPreview() {
     const el = $('preview');
@@ -307,7 +309,8 @@
   function msg(id, text, err) { const el = $(id); el.textContent = text; el.className = 'msg' + (err ? ' err' : ''); }
 
   $('shift-form').addEventListener('input', () => renderPreview());
-  for (const k of ['from', 'till', 'bs']) F[k].addEventListener('blur', () => { const n = normTime(F[k].value); if (n) F[k].value = n; renderPreview(); });
+  // The input listener already rendered the current value; re-render on blur only when normalising changed it.
+  for (const k of ['from', 'till', 'bs']) F[k].addEventListener('blur', () => { const n = normTime(F[k].value); if (n && n !== F[k].value) { F[k].value = n; renderPreview(); } });
   $('shift-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const sh = formShift();
