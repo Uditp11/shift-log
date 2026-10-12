@@ -1,37 +1,5 @@
 const { test, expect } = require('@playwright/test');
-
-const SEED = [
-  ['2026-10-05', 'worked', '2200', '0630', '€ 147,55'],
-  ['2026-10-06', 'worked', '22:00', '06:30', '€ 147,55'],
-  ['2026-10-07', 'dayoff', '', '', null],
-  ['2026-10-08', 'worked', '23:15', '6:30', '€ 127,43'],
-  ['2026-10-09', 'worked', '23:30', '06:30', '€ 122,64'],
-];
-
-async function onboard(page) {
-  await page.goto('/');
-  await expect(page.locator('#onboarding')).toBeVisible();
-  await page.click('#ob-lang-en');
-  await page.click('#ob-next');
-  await page.click('#ob-next');
-  if (await page.locator('#ob-next').count()) await page.click('#ob-next'); // Home Screen step (not standalone)
-  await page.click('#ob-first');
-  await expect(page.locator('#onboarding')).toBeHidden();
-}
-
-async function enterSeed(page) {
-  for (const [date, status, from, till, gross] of SEED) {
-    await page.fill('#f-date', date);
-    await page.selectOption('#f-status', status);
-    if (status === 'worked') {
-      await page.fill('#f-from', from);
-      await page.fill('#f-till', till);
-      await expect(page.locator('.pv-gross')).toHaveText(gross);
-    }
-    await page.click('#f-save');
-    await expect(page.locator('#f-msg')).toContainText(date.slice(8, 10) + '.' + date.slice(5, 7) + '.');
-  }
-}
+const { onboard, enterSeed } = require('./helpers');
 
 test('seed week entered by hand reproduces the expected numbers and survives a reload', async ({ page }) => {
   await onboard(page);
