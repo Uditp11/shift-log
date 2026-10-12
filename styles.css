@@ -239,8 +239,9 @@ tr.cur td { background: var(--surface-2); }
 .est { font-size: 12px; font-weight: 600; color: var(--muted); }
 td:first-child { white-space: normal; }
 td small { display: block; font-size: 13px; font-weight: 400; color: var(--muted); }
-/* Very narrow phones (320 px): tighter cell padding keeps the three-column bonus table inside the card. */
-@media (max-width: 359.98px) { th, td { padding-inline: 2px; } }
+/* Very narrow phones (320 px): tighter cell padding, and a row name may break inside a long word
+   ("24.12./31.12."), so the three-column bonus table stays inside the card whatever the font metrics. */
+@media (max-width: 359.98px) { th, td { padding-inline: 2px; } td:first-child { overflow-wrap: anywhere; } }
 /* Stacked rows on phones: the first cell is the row's title, the other cells sit in equal mini-columns,
    each under its column name (data-label). The header row stays in the page for screen readers.
    Below 640 px, not 520: the German five-column "Earned value" table needs about 585 px, and phones in
