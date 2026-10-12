@@ -47,3 +47,17 @@ test('Summary leads with gross and net, and the bonus table has three columns', 
   await page.click('button[data-tab=account]');
   await expect(page.locator('#acc-tiles .tile').first()).toHaveClass(/\bwide\b/);
 });
+
+// Beyond the 390/412 px phones: a 320 px phone, and an iPhone SE in landscape (568 px), where the
+// five-column German "Earned value" table used to be too wide for the card.
+test('tables and tiles also fit at 320 px and in 568 px landscape', async ({ page }) => {
+  for (const size of [{ width: 320, height: 640 }, { width: 568, height: 320 }]) {
+    await page.setViewportSize(size);
+    await page.click('button[data-tab=summary]');
+    await page.evaluate(() => { for (const b of document.querySelectorAll('#sum-tiles .tile b')) b.textContent = '€ 9.999,99'; });
+    expect(await page.evaluate(overflowing), 'summary ' + size.width).toEqual([]);
+    await page.click('button[data-tab=account]');
+    expect(await page.evaluate(overflowing), 'account ' + size.width).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'page ' + size.width).toBe(true);
+  }
+});

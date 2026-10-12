@@ -209,15 +209,18 @@ input:disabled, select:disabled, button:disabled { opacity: .45; cursor: not-all
 .seg-ctl { display: inline-grid; grid-auto-flow: column; overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--r-ctl); background: var(--surface); }
 .seg-ctl button { min-height: 44px; padding: 0 18px; border: 0; background: none; color: var(--muted); font-weight: 600; cursor: pointer; }
 .seg-ctl button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+/* Two columns at every width: in four columns a 32 px lead value ("€ 9.999,99") never fits, even at the 680 px maximum. */
 .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-@media (min-width: 560px) { .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: var(--r-card); background: var(--surface); }
 .tile b { overflow: hidden; font-family: var(--display); font-size: 26px; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; white-space: nowrap; text-overflow: ellipsis; }
 .tile small { font-size: 13px; color: var(--muted); }
 .tile.neg b { color: var(--bad); }
 .tile.lead b { font-size: 32px; }
 .tile.wide { grid-column: 1 / -1; }
-@media (min-width: 560px) { .tile.wide { grid-column: span 2; } }
+/* After a wide lead tile, an odd last tile takes the whole row instead of leaving a gap beside it. */
+.tile.wide:first-child ~ .tile:last-child:nth-child(even) { grid-column: 1 / -1; }
+/* 320 px phones: a lead tile is 112 px wide inside, so its value drops to the normal tile size. */
+@media (max-width: 359.98px) { .tile.lead b { font-size: 26px; } }
 
 /* ===== 12. Tables ===== */
 .tablewrap { min-width: 0; }
@@ -236,18 +239,23 @@ tr.cur td { background: var(--surface-2); }
 .est { font-size: 12px; font-weight: 600; color: var(--muted); }
 td:first-child { white-space: normal; }
 td small { display: block; font-size: 13px; font-weight: 400; color: var(--muted); }
+/* Very narrow phones (320 px): tighter cell padding keeps the three-column bonus table inside the card. */
+@media (max-width: 359.98px) { th, td { padding-inline: 2px; } }
 /* Stacked rows on phones: the first cell is the row's title, the other cells sit in equal mini-columns,
-   each under its column name (data-label). The header row stays in the page for screen readers. */
-@media (max-width: 519.98px) {
+   each under its column name (data-label). The header row stays in the page for screen readers.
+   Below 640 px, not 520: the German five-column "Earned value" table needs about 585 px, and phones in
+   landscape start at 568 px (iPhone SE). */
+@media (max-width: 639.98px) {
   table.stack, table.stack tbody, table.stack td { display: block; }
   table.stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  table.stack tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 12px; padding: 12px 8px; border-bottom: 1px solid var(--line); }
+  table.stack tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
   table.stack.c2 tr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   table.stack.c4 tr { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  table.stack tr.cur { border-radius: var(--r-ctl); background: var(--surface-2); }
+  table.stack tr.cur { padding-inline: 8px; border-radius: var(--r-ctl); background: var(--surface-2); }
   table.stack tr.cur td { background: none; }
   table.stack td { padding: 0; border: 0; text-align: left; white-space: normal; overflow-wrap: anywhere; }
   table.stack td:first-child { grid-column: 1 / -1; font-weight: 600; }
+  table.stack + .note { margin-top: 12px; }
   table.stack td[data-label]::before { content: attr(data-label); display: block; font-size: 12px; font-weight: 600; line-height: 1.3; color: var(--muted); }
 }
 
