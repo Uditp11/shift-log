@@ -46,8 +46,9 @@
   <div id="banners" aria-live="polite"></div>
   <!-- SHIFTS -->
   <section id="tab-shifts" class="wrap" aria-labelledby="t-shifts">
+    <div class="week-now" id="week-now" hidden></div>
     <form class="card" id="shift-form" autocomplete="off" novalidate>
-      <div class="btnrow" style="justify-content:space-between">
+      <div class="form-head">
         <h2 id="form-title" data-i18n="shifts.add">Add shift</h2>
         <button type="button" class="btn" id="f-cancel" hidden data-i18n="shifts.new">New shift</button>
       </div>
@@ -69,17 +70,23 @@
           <label class="field"><span data-i18n="shifts.till">Till</span><input class="time" id="f-till" inputmode="numeric" placeholder="06:30" maxlength="5"></label>
           <div class="chips" id="chips-till"></div>
         </div>
-        <label class="field"><span data-i18n="shifts.break">Break (min, unpaid)</span><input type="number" id="f-break" inputmode="numeric" min="0" step="5"></label>
-        <label class="field"><span data-i18n="shifts.breakStart">Break starts (blank = mid-shift)</span><input class="time" id="f-breakstart" inputmode="numeric" placeholder="auto" data-i18n-ph="shifts.breakStartPh" maxlength="5"></label>
-        <label class="field wide"><span data-i18n="common.note">Note</span><input id="f-note" maxlength="200" placeholder="Optional" data-i18n-ph="shifts.notePh"></label>
       </div>
       <div class="preview" id="preview" aria-live="polite"></div>
+      <details class="more" id="f-more">
+        <summary><span id="f-more-sum"></span><svg aria-hidden="true"><use href="#i-caret"/></svg></summary>
+        <div class="fields">
+          <label class="field"><span data-i18n="shifts.break">Break (min, unpaid)</span><input type="number" id="f-break" inputmode="numeric" min="0" step="5"></label>
+          <label class="field"><span data-i18n="shifts.breakStart">Break starts (blank = mid-shift)</span><input class="time" id="f-breakstart" inputmode="numeric" placeholder="auto" data-i18n-ph="shifts.breakStartPh" maxlength="5"></label>
+          <label class="field wide"><span data-i18n="common.note">Note</span><input id="f-note" maxlength="200" placeholder="Optional" data-i18n-ph="shifts.notePh"></label>
+        </div>
+      </details>
       <div class="btnrow">
         <button type="submit" class="btn primary" id="f-save" data-i18n="shifts.save">Save shift</button>
         <button type="button" class="btn danger" id="f-delete" hidden data-i18n="common.delete">Delete</button>
       </div>
       <p class="msg" id="f-msg"></p>
     </form>
+    <div id="backup-banner" aria-live="polite"></div>
     <div id="shift-list" class="wrap"></div>
   </section>
 
