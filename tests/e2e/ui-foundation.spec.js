@@ -10,13 +10,16 @@ function smallTargets(scope) {
   const box = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 ? r : null; };
   const name = (el) => el.id || el.className || el.tagName;
   const root = document.querySelector(scope);
-  for (const el of root.querySelectorAll('button, select, input:not([type=checkbox]), .chip')) {
+  for (const el of root.querySelectorAll('button, select, input:not([type=checkbox]), .chip, a[href]')) {
     const r = box(el);
     if (r && (r.width < 44 || r.height < 44)) out.push(name(el) + ' ' + Math.round(r.width) + '×' + Math.round(r.height));
   }
   for (const el of root.querySelectorAll('label.check')) {
     const r = box(el);
     if (r && r.height < 44) out.push('label.check ' + Math.round(r.height));
+    // The box itself keeps its 22 px: a long label next to it must not squeeze it narrower.
+    const c = r && box(el.querySelector('input'));
+    if (c && (c.width < 21.5 || c.height < 21.5)) out.push('checkbox ' + el.querySelector('input').id + ' ' + Math.round(c.width) + '×' + Math.round(c.height));
   }
   return out;
 }
