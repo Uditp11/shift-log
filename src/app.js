@@ -114,6 +114,8 @@
 
   // ---------- shared bits ----------
   const warnIcon = '<svg aria-hidden="true"><use href="#i-warn"/></svg>';
+  // Empty states: the existing text, centred, under the screen's icon.
+  const emptyState = (icon, text) => '<div class="empty"><svg aria-hidden="true"><use href="#' + icon + '"/></svg><p>' + esc(text) + '</p></div>';
   function stripHtml(shift, r) {
     const f = C.parseHM(shift.from);
     if (f == null || !r.runs) return '';
@@ -137,7 +139,7 @@
     return html + '</div>';
   }
   const stripAxis = '<div class="strip-axis" aria-hidden="true"><span>00</span><span>06</span><span>12</span><span>18</span><span>00</span><span>06</span><span>12</span></div>';
-  const stripLegend = () => '<div class="legend"><span><i style="background:var(--base)"></i>' + esc(t('shifts.legendBase')) + '</span><span><i style="background:var(--bonus)"></i>' +
+  const stripLegend = () => '<div class="legend"><span><i style="background:var(--base)"></i>' + esc(t('shifts.legendBase')) + '</span><span><i style="background:var(--accent)"></i>' +
     esc(t('shifts.legendBonus')) + '</span><span><i style="background:var(--nightband)"></i>' + esc(t('shifts.legendNight')) + '</span></div>';
 
   function warnList(ws) {
@@ -308,7 +310,7 @@
     const el = $('shift-list');
     const { all, weeks } = calc();
     if (!all.length) {
-      el.innerHTML = '<div class="card empty">' + esc(state.loaded ? t('shifts.empty') : t('shifts.loading')) + '</div>';
+      el.innerHTML = '<div class="card">' + emptyState('i-clock', state.loaded ? t('shifts.empty') : t('shifts.loading')) + '</div>';
       return;
     }
     const keys = Object.keys(weeks).sort().reverse();
@@ -383,7 +385,7 @@
         const gap = b.bonus > 0 && b.base > 0 ? 2 : 0;
         if (b.bonus > 0) {
           s += '<path fill="var(--base)"' + op + ' d="M' + x + ',' + (T + ih) + 'V' + (T + ih - hb) + 'H' + (x + bw) + 'V' + (T + ih) + 'Z"/>';
-          s += '<path fill="var(--bonus)"' + op + ' d="' + topRound(x, T + ih - hb - hp - gap, bw, Math.max(0, hp), 4) + '"/>';
+          s += '<path fill="var(--accent)"' + op + ' d="' + topRound(x, T + ih - hb - hp - gap, bw, Math.max(0, hp), 4) + '"/>';
         } else {
           s += '<path fill="var(--base)"' + op + ' d="' + topRound(x, T + ih - hb, bw, hb, 4) + '"/>';
         }
@@ -409,7 +411,7 @@
   function lineChart(el, pts) {
     const W = Math.max(280, el.clientWidth || 600), H = 200, L = 52, R = 14, T = 14, B = 26;
     const iw = W - L - R, ih = H - T - B;
-    if (!pts.length) { el.innerHTML = '<p class="empty">' + esc(t('account.noDays')) + '</p>'; return; }
+    if (!pts.length) { el.innerHTML = emptyState('i-bank', t('account.noDays')); return; }
     let lo = Math.min(0, ...pts.map((p) => p.balance)), hi = Math.max(0, ...pts.map((p) => p.balance));
     if (hi - lo < 1) { hi += 1; lo -= 1; }
     const step = niceStep(hi - lo, 4);
@@ -432,9 +434,9 @@
     s += '<path d="' + line + 'L' + x(pts.length - 1).toFixed(1) + ',' + y(0) + 'L' + x(0).toFixed(1) + ',' + y(0) + 'Z" fill="var(--base)" opacity=".12"/>';
     s += '<path d="' + line + '" fill="none" stroke="var(--base)" stroke-width="2" stroke-linejoin="round"/>';
     const last = pts[pts.length - 1];
-    s += '<circle cx="' + x(pts.length - 1) + '" cy="' + y(last.balance) + '" r="4.5" fill="var(--base)" stroke="var(--paper)" stroke-width="2"/>';
+    s += '<circle cx="' + x(pts.length - 1) + '" cy="' + y(last.balance) + '" r="4.5" fill="var(--base)" stroke="var(--surface)" stroke-width="2"/>';
     s += '<line class="xh" x1="0" x2="0" y1="' + T + '" y2="' + (T + ih) + '" stroke="var(--muted)" stroke-width="1" visibility="hidden"/>';
-    s += '<circle class="xd" r="4.5" fill="var(--base)" stroke="var(--paper)" stroke-width="2" visibility="hidden"/>';
+    s += '<circle class="xd" r="4.5" fill="var(--base)" stroke="var(--surface)" stroke-width="2" visibility="hidden"/>';
     s += '<rect class="ov" x="' + L + '" y="' + T + '" width="' + iw + '" height="' + ih + '" fill="transparent"/></svg>';
     el.innerHTML = s;
     const svg = el.querySelector('svg'), xh = svg.querySelector('.xh'), xd = svg.querySelector('.xd');
@@ -466,7 +468,7 @@
     const sel = $('sum-period');
     if (!keys.length) {
       sel.innerHTML = '<option>' + esc(t('summary.noShifts')) + '</option>'; sel.disabled = true;
-      $('sum-tiles').innerHTML = ''; $('sum-table').innerHTML = '<p class="empty">' + esc(t('summary.empty')) + '</p>';
+      $('sum-tiles').innerHTML = ''; $('sum-table').innerHTML = emptyState('i-bars', t('summary.empty'));
       $('chart-weeks').innerHTML = '';
       return;
     }
@@ -546,7 +548,7 @@
 
     const ov = s.monthTargetOverride || {};
     const th = (k) => '<th>' + esc(t(k)) + '</th>';
-    $('acc-table').innerHTML = !ta.rows.length ? '<p class="empty">' + esc(t('account.noMonths')) + '</p>' :
+    $('acc-table').innerHTML = !ta.rows.length ? emptyState('i-bank', t('account.noMonths')) :
       '<table><thead><tr>' + th('account.colMonth') + th('account.soll') + th('account.colWorked') + '<th>Δ</th>' + th('account.balance') + '</tr></thead><tbody>' +
       ta.rows.map((r) => '<tr' + (r.ym === curYm ? ' class="cur"' : '') + '><td>' + esc(monthName(r.ym)) +
         (r.ym === curYm && upto < r.ym + '-' + pad(C.daysInMonth(r.ym)) ? ' <span class="small muted">' + esc(t('account.inProgress')) + '</span>' : '') +
@@ -814,16 +816,23 @@
   const homeSteps = () => t(isAndroid() ? 'ob.home.stepsAndroid' : 'ob.home.steps');
   const homeWhy = () => t(isAndroid() ? 'ob.home.whyAndroid' : 'ob.home.why');
 
-  function banner(kind, text, sub, buttons) {
-    return '<div class="banner' + (kind === 'bad' ? ' bad' : '') + '"' + (kind === 'bad' ? ' role="alert"' : '') + '><p>' + esc(text) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</p>' +
-      (buttons || []).map(([id, label]) => '<button type="button" class="btn" id="' + id + '">' + esc(label) + '</button>').join('') + '</div>';
+  // kind: 'warn' (amber stripe), 'info' (ink stripe) or 'bad' (red, role=alert). how: { text, open } adds the
+  // folded "Add to Home Screen" steps.
+  function banner(kind, text, sub, buttons, how) {
+    const cls = kind === 'bad' || kind === 'info' ? ' ' + kind : '';
+    return '<div class="banner' + cls + '"' + (kind === 'bad' ? ' role="alert"' : '') + '><p>' + esc(text) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</p>' +
+      (buttons || []).map(([id, label]) => '<button type="button" class="btn" id="' + id + '">' + esc(label) + '</button>').join('') +
+      (how ? '<details' + (how.open ? ' open' : '') + '><summary>' + esc(t('ob.home.title')) + '<svg aria-hidden="true"><use href="#i-caret"/></svg></summary><p>' + esc(how.text) + '</p></details>' : '') +
+      '</div>';
   }
 
   function renderBanners() {
     const out = [];
+    // Banners re-render on every save; keep the install steps open if the person opened them.
+    const howOpen = !!document.querySelector('#banners details[open]');
     if (!store && state.loaded) out.push(banner('bad', t('banner.noStorage')));
     if (updateWorker) out.push(banner('warn', t('banner.update'), '', [['update-reload', t('banner.reload')]]));
-    if (store && !isStandalone()) out.push(banner('warn', t('banner.safari'), homeSteps()));
+    if (store && !isStandalone()) out.push(banner('info', t('banner.safari'), '', null, { text: homeSteps(), open: howOpen }));
     const due = store && state.tab === 'shifts' && Backup.backupDue(state.meta, S(), Object.keys(state.shifts).length, new Date());
     if (due) out.push(banner('warn', due.never ? t('banner.neverBackedUp') : t('banner.backupDue', { when: whenText(state.meta.lastBackupAt) }), '', [['backup-now', t('backup.save')]]));
     $('banners').innerHTML = out.join('');
