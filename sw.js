@@ -1,6 +1,6 @@
 /* Offline cache. Everything is served cache-first from one versioned cache, so HTML and JS always match.
    A new version installs in the background and waits; the app shows "Reload", which posts SKIP_WAITING. */
-const VERSION = '1.1.0';
+const VERSION = '1.1.1';
 const CACHE = 'shift-log-' + VERSION;
 const SHELL = [
   './',
