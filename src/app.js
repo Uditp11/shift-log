@@ -834,11 +834,18 @@
     return lines.join('\r\n') + '\r\n';
   }
 
+  // Android Chrome installs from its ⋮ menu; everything else gets the iPhone Safari steps.
+  const isAndroid = () => /Android/i.test(navigator.userAgent);
+  // Chrome on Android answers canShare() yes for any file, but its share() refuses every type outside a short
+  // allowlist (images, audio, video, PDF, text/plain, CSV, CSS, HTML) with NotAllowedError, and .json is not on it.
+  // So on Android a backup downloads to the phone's Downloads folder instead of failing every time.
+  const shareRefused = (mime) => isAndroid() && mime === 'application/json';
+
   // Offers a file: the share sheet when files can be shared (iPhone, Android), otherwise a normal download.
   // Call it without awaiting anything before it inside a tap handler (iOS needs the tap's user activation).
   async function shareFile(name, text, mime) {
     const file = new File([text], name, { type: mime });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    if (!shareRefused(mime) && navigator.canShare && navigator.canShare({ files: [file] })) {
       try { await navigator.share({ files: [file] }); return 'shared'; }
       catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; throw e; }
     }
@@ -865,8 +872,6 @@
   // ---------- banners (no storage, update, not installed, backup reminder) ----------
   let updateWorker = null, reloadOnSwap = false;
   const isStandalone = () => navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
-  // Android Chrome installs from its ⋮ menu; everything else gets the iPhone Safari steps.
-  const isAndroid = () => /Android/i.test(navigator.userAgent);
   const homeSteps = () => t(isAndroid() ? 'ob.home.stepsAndroid' : 'ob.home.steps');
   const homeWhy = () => t(isAndroid() ? 'ob.home.whyAndroid' : 'ob.home.why');
 
