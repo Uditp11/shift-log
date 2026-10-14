@@ -389,7 +389,21 @@
     const left = Math.max(tw / 2, Math.min(w - tw / 2, x));
     tip.style.left = left + 'px'; tip.style.top = y + 'px';
   }
-  function hideTip(chart) { const tip = chart.querySelector('.tip'); if (tip) tip.hidden = true; }
+  function hideTip(chart) {
+    const tip = chart.querySelector('.tip'); if (tip) tip.hidden = true;
+    chart.querySelectorAll('.xh, .xd').forEach((m) => m.setAttribute('visibility', 'hidden'));
+  }
+  // Mouse: the details follow the pointer and close when it leaves. Touch and pen: a tap opens them
+  // on lifting the finger and they stay, because the browser sends pointerleave right after every
+  // pointerup; the next tap elsewhere closes them. A scroll ends in pointercancel, so it opens nothing.
+  function chartPointer(svg, el, show) {
+    svg.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') show(e); });
+    svg.addEventListener('pointerup', (e) => { if (e.pointerType !== 'mouse') show(e); });
+    svg.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') hideTip(el); });
+  }
+  document.addEventListener('pointerdown', (e) => {
+    document.querySelectorAll('.chart').forEach((c) => { if (!c.contains(e.target)) hideTip(c); });
+  });
   function topRound(x, y, w, h, r) {
     r = Math.min(r, w / 2, h);
     return 'M' + x + ',' + (y + h) + 'V' + (y + r) + 'Q' + x + ',' + y + ' ' + (x + r) + ',' + y + 'H' + (x + w - r) + 'Q' + (x + w) + ',' + y + ' ' + (x + w) + ',' + (y + r) + 'V' + (y + h) + 'Z';
@@ -429,14 +443,13 @@
     el.innerHTML = s;
     const svg = el.querySelector('svg');
     const scale = () => el.clientWidth / W;
-    svg.addEventListener('pointermove', (e) => {
+    chartPointer(svg, el, (e) => {
       const r = e.target.closest('.hit'); if (!r) return hideTip(el);
       const b = bars[+r.dataset.i], i = +r.dataset.i;
       const cx = (L + slot * i + slot / 2) * scale(), ty = y(b.base + b.bonus) * scale();
       showTip(el, cx, ty, '<div>' + esc(b.title) + '</div><b>' + eur(b.base + b.bonus) + '</b> ' + esc(t('summary.tipGross')) + '<br>' +
         esc(t('summary.tipBase')) + ' <b>' + eur(b.base) + '</b> · ' + esc(t('summary.tipBonus')) + ' <b>' + eur(b.bonus) + '</b>');
     });
-    svg.addEventListener('pointerleave', () => hideTip(el));
     if (onPick) svg.addEventListener('click', (e) => { const r = e.target.closest('.hit'); if (r) onPick(bars[+r.dataset.i]); });
   }
 
@@ -472,7 +485,7 @@
     s += '<rect class="ov" x="' + L + '" y="' + T + '" width="' + iw + '" height="' + ih + '" fill="transparent"/></svg>';
     el.innerHTML = s;
     const svg = el.querySelector('svg'), xh = svg.querySelector('.xh'), xd = svg.querySelector('.xd');
-    svg.addEventListener('pointermove', (e) => {
+    chartPointer(svg, el, (e) => {
       const rect = svg.getBoundingClientRect(), k = W / rect.width;
       const px = (e.clientX - rect.left) * k;
       const i = Math.max(0, Math.min(pts.length - 1, Math.round(((px - L) / iw) * (pts.length - 1))));
@@ -482,7 +495,6 @@
       showTip(el, x(i) / k, y(p.balance) / k, '<div>' + esc(wd(p.date)) + ' ' + dmy(p.date) + '</div>' + esc(t('account.tipBalance')) + ' <b>' + sHrs(p.balance) + '</b><br>' +
         esc(t('account.tipWorked')) + ' <b>' + hrs(p.worked) + '</b> · ' + esc(t('account.soll')) + ' <b>' + hrs(p.target) + '</b>');
     });
-    svg.addEventListener('pointerleave', () => { hideTip(el); xh.setAttribute('visibility', 'hidden'); xd.setAttribute('visibility', 'hidden'); });
   }
 
   // ---------- Summary tab ----------
@@ -1090,8 +1102,17 @@
     if (!noScroll) window.scrollTo(0, 0);
   }
   document.querySelector('.tabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-tab]'); if (b) setTab(b.dataset.tab); });
-  let rz = 0;
-  window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (state.tab === 'summary' || state.tab === 'account') renderTab(); }, 150); });
+  // Charts are drawn to the page width. Only a width change redraws them: Android Chrome fires resize
+  // whenever its address bar slides on scroll, and a redraw would close the chart details.
+  let rz = 0, rzW = window.innerWidth;
+  window.addEventListener('resize', () => {
+    clearTimeout(rz);
+    rz = setTimeout(() => {
+      if (window.innerWidth === rzW) return;
+      rzW = window.innerWidth;
+      if (state.tab === 'summary' || state.tab === 'account') renderTab();
+    }, 150);
+  });
 
   // ---------- boot ----------
   async function boot() {
