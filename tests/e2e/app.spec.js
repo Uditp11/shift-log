@@ -60,7 +60,8 @@ test('a broken backup file is refused and nothing changes', async ({ page }) => 
   await expect(page.locator('.week-head').first()).toContainText('29,25 h · € 545,17');
 });
 
-test('cancelling the share sheet does not record a backup', async ({ page }) => {
+test('cancelling the share sheet does not record a backup', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'android-chrome', 'Android saves the backup as a download, there is no share sheet to cancel');
   await page.addInitScript(() => {
     navigator.canShare = () => true;
     navigator.share = () => Promise.reject(Object.assign(new Error('cancel'), { name: 'AbortError' }));
@@ -71,6 +72,49 @@ test('cancelling the share sheet does not record a backup', async ({ page }) => 
   await expect(page.locator('#backup-msg')).toHaveText('Backup not saved.');
   await page.click('#set-close');
   await expect(page.locator('#status')).toContainText('No backup yet');
+});
+
+// Chrome on Android says canShare() yes to any file, then share() refuses a .json file with NotAllowedError
+// (its share allowlist has no JSON). Mock exactly that: the backup must still be saved, as a download.
+test('Android: Save backup downloads the file even though Chrome would refuse to share it', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'android-chrome', 'Android only');
+  await page.addInitScript(() => {
+    window.__shareCalls = 0;
+    navigator.canShare = () => true;
+    navigator.share = () => { window.__shareCalls++; return Promise.reject(Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' })); };
+  });
+  await onboard(page);
+  await enterSeed(page);
+  // The reminder under the shift form (never backed up, 3+ shifts).
+  const [first] = await Promise.all([page.waitForEvent('download'), page.click('#backup-now')]);
+  expect(first.suggestedFilename()).toMatch(/^shift-log-backup-\d{4}-\d{2}-\d{2}\.json$/);
+  await expect(page.locator('#f-msg')).toHaveText('Backup saved.');
+  await expect(page.locator('#status')).toContainText('last backup today');
+  // Settings → Save backup.
+  await page.click('#open-settings');
+  const [download] = await Promise.all([page.waitForEvent('download'), page.click('#backup-btn')]);
+  expect(download.suggestedFilename()).toMatch(/^shift-log-backup-\d{4}-\d{2}-\d{2}\.json$/);
+  const saved = JSON.parse(require('fs').readFileSync(await download.path(), 'utf8'));
+  expect(saved.format).toBe('shift-log-backup');
+  expect(saved.shifts).toHaveLength(5);
+  await expect(page.locator('#backup-msg')).toHaveText('Backup saved.');
+  expect(await page.evaluate(() => window.__shareCalls)).toBe(0);
+});
+
+test('iPhone: Save backup still opens the share sheet with the .json file', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'android-chrome', 'iPhone only');
+  await page.addInitScript(() => {
+    window.__shared = [];
+    navigator.canShare = () => true;
+    navigator.share = (data) => { window.__shared.push(...data.files.map((f) => f.name + ' ' + f.type)); return Promise.resolve(); };
+  });
+  await onboard(page);
+  await page.click('#open-settings');
+  await page.click('#backup-btn');
+  await expect(page.locator('#backup-msg')).toHaveText('Backup saved.');
+  const shared = await page.evaluate(() => window.__shared);
+  expect(shared).toHaveLength(1);
+  expect(shared[0]).toMatch(/^shift-log-backup-\d{4}-\d{2}-\d{2}\.json application\/json$/);
 });
 
 test('switching language keeps a half-filled shift form and leaves no English labels', async ({ page }) => {
