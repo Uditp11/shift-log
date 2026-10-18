@@ -1,4 +1,4 @@
-/* Warehouse timesheet calc engine — pure functions, no DOM.
+/* Shift timesheet calc engine — pure functions, no DOM.
  * Works in Node (module.exports) and the browser (window.Calc). */
 (function (root, factory) {
   const api = factory();

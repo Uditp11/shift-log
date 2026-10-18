@@ -2,7 +2,7 @@
   "id": "./",
   "name": "Shift Log",
   "short_name": "Shift Log",
-  "description": "Shift and pay tracker for Adecco temps at Deutsche Post Obertshausen",
+  "description": "Shift and pay tracker for a temp-work shift contract",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

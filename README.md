@@ -1,6 +1,6 @@
 # Shift Log
 
-Shift and pay tracker for Adecco temp workers at Deutsche Post Obertshausen. Works offline from the Home Screen on iPhone and Android; all data stays on your phone.
+Shift and pay tracker for a German temp-work shift contract (Zeitarbeitsvertrag). Works offline from the Home Screen on iPhone and Android; all data stays on your phone.
 
 ## Install on iPhone
 1. Open the link in **Safari**.
@@ -13,6 +13,16 @@ Shift and pay tracker for Adecco temp workers at Deutsche Post Obertshausen. Wor
 3. From now on open **Shift Log** from the new icon.
 
 On iPhone, deleting the icon deletes your data; on Android, clearing Chrome's site data does. Use **Settings → Save backup** now and then and keep the file somewhere safe: iCloud Drive on iPhone, Google Drive or Files on Android.
+
+## For engineers
+A small offline-first web app in plain JavaScript, with no framework and no build step.
+- Offline-first storage: shifts, payslips and settings live in IndexedDB on the phone. No server.
+- A service worker caches each version and shows a banner when a new one is ready.
+- Two-language UI in English and German, picked from the phone's language and switchable in Settings.
+- Unit tests with `node --test` for the pay engine, formatting, language, backup and storage.
+- Playwright end-to-end tests in WebKit at iPhone size and Chromium at Android size.
+- One pull request per task.
+- GitHub Actions runs both test suites, then deploys to GitHub Pages.
 
 ## Develop
 - `npm test`: unit tests (pay engine, formatting, language, backup, storage)
