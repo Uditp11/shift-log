@@ -115,7 +115,7 @@
     return {
       ...clone(calcDefaults),
       lang: lang === 'de' ? 'de' : 'en',
-      jobLabel: 'Lagerhelfer · Deutsche Post Obertshausen · via Adecco',
+      jobLabel: lang === 'de' ? 'Zeitarbeit' : 'Temp job',
       backupReminderDays: 7,
     };
   }

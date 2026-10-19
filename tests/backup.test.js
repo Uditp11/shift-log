@@ -77,7 +77,7 @@ test('mergeSettings: settings saved by an older version get the new keys from de
   assert.equal(s.nightPct, 30);
   assert.equal(s.lang, 'de');
   assert.equal(s.backupReminderDays, 7);
-  assert.equal(s.jobLabel, 'Lagerhelfer · Deutsche Post Obertshausen · via Adecco');
+  assert.equal(s.jobLabel, 'Zeitarbeit');
 });
 test('mergeSettings keeps absenceCreditH, repairs empty ratePeriods and a missing override map', () => {
   const defaults = B.appDefaults(C.defaultSettings(), 'en');

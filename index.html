@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Shift Log</title>
-<meta name="description" content="Shift and pay tracker for Adecco temps at Deutsche Post Obertshausen">
+<meta name="description" content="Shift and pay tracker for a temp-work shift contract">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#e9ecef" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0a0e13" media="(prefers-color-scheme: dark)">
@@ -37,7 +37,7 @@
   <div class="top-in">
     <div class="brand">
       <h1 translate="no">Shift Log</h1>
-      <p translate="no">Lagerhelfer · Deutsche Post Obertshausen · via Adecco</p>
+      <p translate="no">Temp job</p>
     </div>
     <span class="status-line" id="status" role="status"></span>
     <button class="iconbtn" id="open-settings" type="button" aria-label="Settings" data-i18n-aria="settings.title"><svg aria-hidden="true"><use href="#i-gear"/></svg></button>
@@ -128,7 +128,7 @@
     <div class="card">
       <h3 data-i18n="account.compareTitle">Earned value vs expected payslip</h3>
       <div class="tablewrap" id="acc-compare"></div>
-      <p class="note" data-i18n="account.compareNote">Adecco pays the target hours every month (MTV §14.1), not the hours worked. The gap between the two columns is the month's time-account change × hourly rate.</p>
+      <p class="note" data-i18n="account.compareNote">The temp agency pays the target hours every month (MTV §14.1), not the hours worked. The gap between the two columns is the month's time-account change × hourly rate.</p>
     </div>
   </section>
 
@@ -169,7 +169,7 @@
 <div class="sheet" id="settings" hidden role="dialog" aria-modal="true" aria-labelledby="set-title">
   <div class="wrap">
     <div class="sheet-head"><h2 id="set-title" data-i18n="settings.title">Settings</h2><button class="btn" type="button" id="set-close" data-i18n="common.close">Close</button></div>
-    <p class="note" data-i18n="settings.intro">Contract values from the Adecco Einsatzmeldung and the GVP Basistarifwerk 2026. Every change recalculates all shifts.</p>
+    <p class="note" data-i18n="settings.intro">Contract values from your Einsatzmeldung and the GVP Basistarifwerk 2026. Every change recalculates all shifts.</p>
     <fieldset><legend data-i18n="settings.language">Language</legend>
       <div class="choice">
         <select id="s-lang" aria-label="Language" data-i18n-aria="settings.language"><option value="en" translate="no">English</option><option value="de" translate="no">Deutsch</option></select>
