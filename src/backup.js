@@ -62,6 +62,7 @@
       if (s.breakStart != null && s.breakStart !== '' && !TIME.test(String(s.breakStart))) return 'shift ' + s.date + ': breakStart ' + JSON.stringify(s.breakStart);
     }
     if (s.breakMin != null && s.breakMin !== '' && !(Number(s.breakMin) >= 0)) return 'shift ' + s.date + ': breakMin ' + JSON.stringify(s.breakMin);
+    if (s.afterMidnight != null && typeof s.afterMidnight !== 'boolean') return 'shift ' + s.date + ': afterMidnight ' + JSON.stringify(s.afterMidnight);
     return null;
   }
 

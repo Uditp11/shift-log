@@ -104,3 +104,15 @@ test('backupDue: due only when there were changes since the last backup and it i
   assert.equal(B.backupDue(meta(recent, changed), { backupReminderDays: 7 }, 10, now), false);
   assert.equal(B.backupDue(meta(old, new Date(now - 9 * D).toISOString()), { backupReminderDays: 7 }, 10, now), false);
 });
+
+test('afterMidnight survives a round trip; a non-boolean value is refused', () => {
+  const data = { shifts: { '2026-11-01': { date: '2026-11-01', from: '01:15', till: '06:30', breakMin: 30, status: 'worked', afterMidnight: true } }, payslips: {}, settings: null };
+  const file = B.buildBackup(data, new Date('2026-11-02T10:00:00Z'), '1.1.4');
+  const r = B.parseBackup(JSON.stringify(file));
+  assert.equal(r.ok, true);
+  assert.equal(r.data.shifts['2026-11-01'].afterMidnight, true);
+  const bad = JSON.parse(JSON.stringify(file));
+  bad.shifts[0].afterMidnight = 'yes';
+  const r2 = B.parseBackup(JSON.stringify(bad));
+  assert.equal(r2.ok, false);
+});

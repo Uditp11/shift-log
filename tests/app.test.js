@@ -61,8 +61,8 @@ test('every calc warning code has a warn.* text, rest shows the hours', () => {
   assert.match(app, /t\('warn\.' \+ w\.code/);
 });
 
-test('CSV header has the original 18 columns in both languages', () => {
-  for (const lang of ['en', 'de']) assert.equal(I.STRINGS[lang]['csv.head'].split(';').length, 18, lang);
+test('CSV header has the original 18 columns plus the real start date, in both languages', () => {
+  for (const lang of ['en', 'de']) assert.equal(I.STRINGS[lang]['csv.head'].split(';').length, 19, lang);
 });
 
 test('app.js uses Fmt, I18n and Store instead of the first version\'s own code paths', () => {

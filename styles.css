@@ -216,6 +216,8 @@ input:disabled, select:disabled, button:disabled { opacity: .45; cursor: not-all
 .row.editing { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--accent); }
 .row .d { font-size: 15px; font-weight: 700; line-height: 1.2; }
 .row .d small { display: block; font-size: 13px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+.row .times small { font-family: var(--body); font-size: 13px; }
+.pv-hint { margin: 0; }
 .row .mid { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .row .times { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-family: var(--mono); font-size: 15px; }
 .row .meta { font-size: 13px; color: var(--muted); }
