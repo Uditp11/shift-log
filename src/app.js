@@ -117,8 +117,9 @@
   // Empty states: the existing text, centred, under the screen's icon.
   const emptyState = (icon, text) => '<div class="empty"><svg aria-hidden="true"><use href="#' + icon + '"/></svg><p>' + esc(text) + '</p></div>';
   function stripHtml(shift, r) {
-    const f = C.parseHM(shift.from);
-    if (f == null || !r.runs) return '';
+    const f0 = C.parseHM(shift.from);
+    if (f0 == null || !r.runs) return '';
+    const f = f0 + (shift.afterMidnight ? 1440 : 0); // the strip starts at the roster day's midnight
     const W = 36 * 60;
     const s = S();
     const ns = C.parseHM(s.nightStart), ne = C.parseHM(s.nightEnd);
@@ -150,12 +151,12 @@
   // ---------- Shifts tab ----------
   const F = {
     date: $('f-date'), status: $('f-status'), from: $('f-from'), till: $('f-till'),
-    brk: $('f-break'), bs: $('f-breakstart'), note: $('f-note'),
+    brk: $('f-break'), bs: $('f-breakstart'), note: $('f-note'), am: $('f-am'),
   };
   function formShift() {
     const status = F.status.value;
     const b = parseNum(F.brk.value);
-    return {
+    const sh = {
       date: F.date.value,
       from: status === 'worked' ? normTime(F.from.value) || '' : '',
       till: status === 'worked' ? normTime(F.till.value) || '' : '',
@@ -164,12 +165,20 @@
       status,
       note: F.note.value.trim(),
     };
+    // Only stored when ticked, so ordinary shifts keep their original shape.
+    if (status === 'worked' && F.am.checked) sh.afterMidnight = true;
+    return sh;
   }
-  function prevWorkedBefore(date) {
-    let best = null;
+  // The worked shift that starts last before this one (any other saved day; the same day is being replaced).
+  function prevWorkedBefore(cur) {
+    const cb = C.shiftBounds(cur);
+    if (!cb) return null;
+    let best = null, bestMs = -Infinity;
     for (const d in state.shifts) {
       const sh = state.shifts[d];
-      if (d < date && (sh.status || 'worked') === 'worked' && (!best || d > best.date)) best = sh;
+      if (d === cur.date || (sh.status || 'worked') !== 'worked') continue;
+      const b = C.shiftBounds(sh);
+      if (b && b.startMs < cb.startMs && b.startMs > bestMs) { best = sh; bestMs = b.startMs; }
     }
     return best;
   }
@@ -188,7 +197,7 @@
     const el = $('preview');
     const sh = formShift();
     const worked = sh.status === 'worked';
-    for (const k of ['from', 'till', 'bs', 'brk']) F[k].disabled = !worked;
+    for (const k of ['from', 'till', 'bs', 'brk', 'am']) F[k].disabled = !worked;
     el.className = 'preview';
     renderMoreSummary(sh, null);
     if (!sh.date) { el.innerHTML = '<p class="muted small">' + esc(t('shifts.pickDate')) + '</p>'; return; }
@@ -207,9 +216,20 @@
       el.innerHTML = '<p class="small muted">' + esc(t('shifts.enterTimes')) + '</p>' + clash;
       return;
     }
-    const r = C.calcShift(sh, S(), prevWorkedBefore(sh.date));
+    const r = C.calcShift(sh, S(), prevWorkedBefore(sh));
     renderMoreSummary(sh, r);
     const nextDay = C.parseHM(sh.till) <= C.parseHM(sh.from);
+    // After midnight: "Sun 01.11. night · Mon 02.11. 01:15 → 06:30". Otherwise the plain start day.
+    const start = C.workDate(sh);
+    const when = sh.afterMidnight
+      ? t('shifts.nightOf', { day: wd(sh.date) + ' ' + dm(sh.date) }) + ' · ' + wd(start) + ' ' + dm(start)
+      : wd(sh.date) + ' ' + dm(sh.date);
+    // An unticked start between midnight and the end of the night window is often a roster day's
+    // after-midnight shift entered on the wrong day: point at the tick-box.
+    const ne = C.parseHM(S().nightEnd), fm = C.parseHM(sh.from);
+    const amHint = !sh.afterMidnight && ne != null && fm < ne && fm < C.parseHM('12:00')
+      ? '<p class="small muted pv-hint">' + esc(t('shifts.amHint', { time: sh.from, day: wd(sh.date) + ' ' + dm(sh.date) })) + '</p>'
+      : '';
     const brk = r.breakMin ? t(S().breakPaid ? 'shifts.breakPaid' : 'shifts.breakUnpaid', { from: r.breakFrom, till: r.breakTill }) : t('shifts.noBreak');
     // Where the money comes from: base, each bonus calc.js already split out, the bonus total.
     const line = (label, v, cls) => '<div class="pv-line' + (cls ? ' ' + cls : '') + '"><span>' + esc(label) + '</span><b>' + v + '</b></div>';
@@ -221,8 +241,8 @@
     el.className = 'preview pv-on';
     el.innerHTML =
       '<div class="kicker">' + esc(t('shifts.pvTitle')) + '</div><div class="pv-gross">' + eur(r.gross) + '</div>' +
-      '<p class="pv-when">' + esc(wd(sh.date) + ' ' + dm(sh.date)) + ' · <span class="mono">' + esc(sh.from) + ' → ' + esc(sh.till) + '</span>' +
-      (nextDay ? ' ' + esc(t('shifts.nextDay')) : '') + '</p>' +
+      '<p class="pv-when">' + esc(when) + ' · <span class="mono">' + esc(sh.from) + ' → ' + esc(sh.till) + '</span>' +
+      (nextDay ? ' ' + esc(t('shifts.nextDay')) : '') + '</p>' + amHint +
       '<div>' + stripHtml(sh, r) + stripAxis + '</div>' + stripLegend() +
       '<div class="pv-lines">' + lines + '</div><p class="pv-break">' + esc(brk) + '</p>' + warnList(r.warnings) + clash;
   }
@@ -273,7 +293,7 @@
     F.date.value = date || todayStr();
     F.status.value = 'worked';
     if (!keepTimes) { F.from.value = ''; F.till.value = ''; F.brk.value = S().defaultBreakMin; }
-    F.bs.value = ''; F.note.value = '';
+    F.bs.value = ''; F.note.value = ''; F.am.checked = false;
     $('f-more').open = false;
     renderFormHead();
     $('f-delete').hidden = true; disarm($('f-delete'));
@@ -286,7 +306,7 @@
     F.date.value = sh.date; F.status.value = sh.status || 'worked';
     F.from.value = sh.from || ''; F.till.value = sh.till || '';
     F.brk.value = sh.breakMin == null ? S().defaultBreakMin : sh.breakMin;
-    F.bs.value = sh.breakStart || ''; F.note.value = sh.note || '';
+    F.bs.value = sh.breakStart || ''; F.note.value = sh.note || ''; F.am.checked = sh.afterMidnight === true;
     $('f-more').open = (sh.breakMin != null && +sh.breakMin !== +S().defaultBreakMin) || !!sh.breakStart || !!sh.note;
     renderFormHead();
     $('f-delete').hidden = false; disarm($('f-delete'));
@@ -349,7 +369,7 @@
     let html = '';
     for (const k of keys) {
       const w = weeks[k];
-      const wk = C.isoWeek(w.items[0].shift.date);
+      const wk = C.isoWeek(C.workDate(w.items[0].shift));
       html += '<section class="week"><div class="week-head"><h3>' + esc(kw(wk.week)) + ' <span class="wk-range">' + dm(wk.monday) + '–' + dm(wk.sunday) + '</span></h3>' +
         '<span class="num">' + hrs(w.paidH) + ' · ' + eur(w.gross) + '</span></div><div class="rows">';
       for (const it of w.items) {
@@ -360,14 +380,15 @@
           const extra = [t('shifts.rowPaid', { h: hrs(r.paidH) }), t('shifts.rowNight', { h: hrs(r.nightH) })];
           if (r.sundayH) extra.push(t('shifts.rowSunday', { h: hrs(r.sundayH) }));
           if (r.holidayH + r.eveH) extra.push(t('shifts.rowHoliday', { h: hrs(r.holidayH + r.eveH) }));
-          mid = '<div class="times">' + esc(sh.from) + '–' + esc(sh.till) + flags + '</div>' + stripHtml(sh, r) + '<div class="meta">' + esc(extra.join(' · ')) + '</div>';
+          const roster = sh.afterMidnight ? '<small class="muted">' + esc(t('shifts.rosterTag', { day: wd(sh.date) + ' ' + dm(sh.date) })) + '</small>' : '';
+          mid = '<div class="times">' + esc(sh.from) + '–' + esc(sh.till) + flags + roster + '</div>' + stripHtml(sh, r) + '<div class="meta">' + esc(extra.join(' · ')) + '</div>';
           g = eur(r.gross) + '<small>+' + eur(r.premium) + '</small>';
         } else {
           mid = '<div class="times"><span class="status">' + esc(STATUS[r.status] || r.status) + '</span></div>' + (sh.note ? '<div class="meta">' + esc(sh.note) + '</div>' : '');
           g = '<span class="muted">—</span>';
         }
         html += '<button type="button" class="row' + (state.editing === sh.date ? ' editing' : '') + '" data-date="' + sh.date + '" aria-label="' + esc(t('shifts.edit', { day: wd(sh.date) + ' ' + dm(sh.date) })) + '">' +
-          '<div class="d">' + esc(wd(sh.date)) + '<small>' + dm(sh.date) + '</small></div><div class="mid">' + mid + '</div><div class="g">' + g + '</div></button>';
+          '<div class="d">' + esc(wd(C.workDate(sh))) + '<small>' + dm(C.workDate(sh)) + '</small></div><div class="mid">' + mid + '</div><div class="g">' + g + '</div></button>';
       }
       html += '</div></section>';
     }
@@ -499,7 +520,7 @@
 
   // ---------- Summary tab ----------
   function weekLabel(key, items) {
-    const wk = C.isoWeek(items && items.length ? items[0].shift.date : todayStr());
+    const wk = C.isoWeek(items && items.length ? C.workDate(items[0].shift) : todayStr());
     return kw(wk.week) + ' · ' + dm(wk.monday) + '–' + dmy(wk.sunday);
   }
   function renderSummary() {
@@ -535,7 +556,7 @@
     // Three columns so nothing scrolls at 390 px: the rate is the type cell's second line.
     const row = (name, sub, h, v, cls) => '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + esc(name) + (sub ? '<small>' + esc(sub) + '</small>' : '') +
       '</td><td>' + (h == null ? '' : hrs(h)) + '</td><td>' + eur(v) + '</td></tr>';
-    const rate = C.rateFor(tot.items[0].shift.date, s);
+    const rate = C.rateFor(C.workDate(tot.items[0].shift), s);
     $('sum-table').innerHTML = '<table><thead><tr><th>' + esc(t('summary.colType')) + '</th><th>' + esc(t('summary.colHours')) +
       '</th><th>' + esc(t('summary.colAmount')) + '</th></tr></thead><tbody>' +
       row(t('summary.rowNight'), s.nightPct + ' %', tot.nightH, pb.night) +
@@ -546,13 +567,13 @@
       row(t('summary.basePay'), eur(rate) + '/h', tot.paidH, tot.base) +
       row(t('summary.gross'), '', null, tot.gross, 'total') + '</tbody></table>' +
       '<p class="note">' + esc(t('summary.note')) + '</p>';
-    $('sum-table-title').textContent = t('summary.breakdown') + ' · ' + (mode === 'week' ? kw(C.isoWeek(tot.items[0].shift.date).week) : monthName(state.sumKey));
+    $('sum-table-title').textContent = t('summary.breakdown') + ' · ' + (mode === 'week' ? kw(C.isoWeek(C.workDate(tot.items[0].shift)).week) : monthName(state.sumKey));
 
     // weekly bars: from the assignment's first week to the latest entry
     const firstWk = C.isoWeek(s.assignmentStart).monday;
-    const lastDate = all[all.length - 1].shift.date;
+    const lastDate = C.workDate(all[all.length - 1].shift);
     const lastWk = C.isoWeek(lastDate > s.assignmentStart ? lastDate : s.assignmentStart).monday;
-    const hlWeeks = new Set(mode === 'week' ? [state.sumKey] : tot.items.map((it) => C.isoWeek(it.shift.date).key));
+    const hlWeeks = new Set(mode === 'week' ? [state.sumKey] : tot.items.map((it) => C.isoWeek(C.workDate(it.shift)).key));
     const bars = [];
     for (let d = firstWk; d <= lastWk && bars.length < 120; d = C.addDays(d, 7)) {
       const wk = C.isoWeek(d), w = weeks[wk.key];
@@ -574,7 +595,7 @@
     const s = S(), { all } = calc();
     let d = todayStr();
     if (s.assignmentEnd && d > s.assignmentEnd) d = s.assignmentEnd;
-    const last = all.length ? all[all.length - 1].shift.date : null;
+    const last = all.length ? C.workDate(all[all.length - 1].shift) : null;
     if (last && last > d) d = last;
     if (d < s.assignmentStart) d = s.assignmentStart;
     return d;
@@ -829,7 +850,7 @@
     for (const { shift: sh, r } of calc().all) {
       lines.push([dmy(sh.date), wd(sh.date), STATUS[r.status] || r.status, sh.from || '', sh.till || '', r.worked ? r.breakMin : '', r.breakFrom || '',
         num(r.paidH, 2), num(r.nightH, 2), num(r.sundayH, 2), num(r.holidayH, 2), num(r.eveH, 2), r.worked ? num(r.rate, 2) : '',
-        num(r.base, 2), num(r.premium, 2), num(r.gross, 2), r.warnings.map(warnText).join(' | '), sh.note || ''].map(q).join(';'));
+        num(r.base, 2), num(r.premium, 2), num(r.gross, 2), r.warnings.map(warnText).join(' | '), sh.note || '', dmy(C.workDate(sh))].map(q).join(';'));
     }
     return lines.join('\r\n') + '\r\n';
   }

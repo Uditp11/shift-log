@@ -87,3 +87,35 @@ test('a wrong break start reopens the row, focuses the field and says what is wr
   const err = await page.evaluate(() => I18n.t('shifts.errBreakStart'));
   await expect(page.locator('#f-msg')).toHaveText(err);
 });
+
+// A roster "Sunday" shift that really starts Monday 01:15 is saved under Sunday with the tick-box,
+// so the real Monday 22:00 shift still fits, and the after-midnight hours get no Sunday bonus.
+test('a roster day shift that starts after midnight: no Sunday bonus, and the next day stays free', async ({ page }) => {
+  await onboard(page);
+  await fillShift(page, '2026-11-01', '01:15', '06:30');
+  await expect(page.locator('.pv-hint')).toBeVisible();
+  await expect(page.locator('.pv-line')).toContainText([/Sunday/]);
+  await page.check('#f-am');
+  await expect(page.locator('.pv-hint')).toHaveCount(0);
+  await expect(page.locator('.pv-gross')).toHaveText('€ 89,11');
+  await expect(page.locator('.pv-when')).toContainText('Sun 01.11. night · Mon 02.11.');
+  await expect(page.locator('.pv-line', { hasText: 'Sunday' })).toHaveCount(0);
+  await page.click('#f-save');
+  await expect(page.locator('#f-msg')).toContainText('01.11.');
+  await expect(page.locator('#f-am')).not.toBeChecked();
+
+  await fillShift(page, '2026-11-02', '22:00', '06:30');
+  await expect(page.locator('#preview .warns')).toHaveCount(0);
+  await expect(page.locator('.pv-gross')).toHaveText('€ 147,55');
+  await page.click('#f-save');
+  await expect(page.locator('#f-msg')).toContainText('02.11.');
+
+  const week = page.locator('#shift-list section.week').first();
+  await expect(week.locator('.row')).toHaveCount(2);
+  await expect(week.locator('.row .d')).toHaveText([/Mon\s*02\.11\./, /Mon\s*02\.11\./]);
+  await expect(week).toContainText('roster: Sun 01.11.');
+
+  await page.click('#shift-list .row[data-date="2026-11-01"]');
+  await expect(page.locator('#f-am')).toBeChecked();
+  await expect(page.locator('.pv-gross')).toHaveText('€ 89,11');
+});

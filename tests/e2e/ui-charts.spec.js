@@ -3,13 +3,25 @@
 const { test, expect } = require('@playwright/test');
 const { onboard, enterSeed } = require('./helpers');
 
+// CI's WebKit can keep the account page from scrolling for a while after a tab switch (it treats the page
+// as barely taller than the screen), so these tests make the screen tall enough to show the chart without
+// scrolling, and check that all of it is in view before tapping.
+async function tallScreen(page) {
+  const vp = page.viewportSize();
+  await page.setViewportSize({ width: vp.width, height: 1100 });
+}
+async function expectChartOnScreen(svg) {
+  await expect(svg).toBeInViewport({ ratio: 1 });
+}
+
 test('tapping a day in Balance over time keeps its details open', async ({ page }) => {
+  await tallScreen(page);
   await onboard(page);
   await enterSeed(page);
   await page.click('button[data-tab=account]');
   const svg = page.locator('#chart-balance svg');
   const tip = page.locator('#chart-balance .tip');
-  await svg.evaluate((e) => e.scrollIntoView({ block: 'center' }));
+  await expectChartOnScreen(svg);
   const box = await svg.boundingBox();
 
   // A day early in the chart, then wait past the old split-second flash.
@@ -42,11 +54,12 @@ test('tapping a day in Balance over time keeps its details open', async ({ page 
 // pointerup and pointerleave right after it. That is the split-second flash; CDP touch events model it.
 test('a finger that wiggles while tapping still keeps the details open', async ({ page, browserName }) => {
   test.skip(browserName !== 'chromium', 'raw touch events need the Chromium DevTools protocol');
+  await tallScreen(page);
   await onboard(page);
   await enterSeed(page);
   await page.click('button[data-tab=account]');
   const svg = page.locator('#chart-balance svg');
-  await svg.evaluate((e) => e.scrollIntoView({ block: 'center' }));
+  await expectChartOnScreen(svg);
   const box = await svg.boundingBox();
   const x = box.x + box.width * 0.4, y = box.y + box.height * 0.5;
   const cdp = await page.context().newCDPSession(page);

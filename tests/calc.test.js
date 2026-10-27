@@ -293,3 +293,69 @@ test('runs: T1 timeline is base 60 / bonus 180 / break 30 / bonus 210 / base 30 
   const r = C.calcShift(shift('2026-10-05', '22:00', '06:30'), S());
   assert.deepEqual(r.runs.map((x) => [x.kind, x.start, x.len]), [['b', 0, 60], ['p', 60, 180], ['gap', 240, 30], ['p', 270, 210], ['b', 480, 30]]);
 });
+
+// ---------- shifts that start after midnight (roster day ≠ start day) ----------
+
+test('afterMidnight: roster Sun 01.11 01:15–06:30 really runs Mon 02.11 → no Sunday bonus, night only', () => {
+  const r = C.calcShift(shift('2026-11-01', '01:15', '06:30', { afterMidnight: true }), S());
+  assert.equal(r.sundayH, 0);
+  assert.equal(r.paidH, 4.75);
+  assert.equal(r.nightH, 4.25);
+  assert.equal(r2(r.premium), 16.29);
+  assert.equal(r2(r.gross), 89.11);
+  assert.equal(C.utcToLocal(r.startMs).dn, C.dayNum('2026-11-02'));
+});
+
+test('without the flag the same entry is still read as Sunday 01:15 (old behaviour kept)', () => {
+  const r = C.calcShift(shift('2026-11-01', '01:15', '06:30'), S());
+  assert.equal(r.sundayH, 4.75);
+});
+
+test('workDate: the real start day of a shift', () => {
+  assert.equal(C.workDate(shift('2026-11-01', '01:15', '06:30', { afterMidnight: true })), '2026-11-02');
+  assert.equal(C.workDate(shift('2026-11-01', '22:00', '06:30')), '2026-11-01');
+});
+
+test('afterMidnight: break start and rate use the real start day', () => {
+  const r = C.calcShift(shift('2026-11-01', '01:15', '06:30', { afterMidnight: true, breakStart: '03:00' }), S());
+  assert.equal(r.breakFrom, '03:00');
+  assert.equal(r.breakTill, '03:30');
+  assert.equal(C.utcToLocal(r.endMs).dn, C.dayNum('2026-11-02'));
+  const s = S();
+  s.ratePeriods = [{ from: '2026-09-01', rate: 15 }, { from: '2026-11-02', rate: 20 }];
+  assert.equal(C.calcShift(shift('2026-11-01', '01:15', '06:30', { afterMidnight: true }), s).rate, 20);
+});
+
+test('afterMidnight: Sun roster shift and the Mon 22:00 shift both count, no rest/overlap warning', () => {
+  const all = C.calcAll([
+    shift('2026-10-31', '22:00', '06:30'),
+    shift('2026-11-01', '01:15', '06:30', { afterMidnight: true }),
+    shift('2026-11-02', '22:00', '06:30'),
+  ], S());
+  assert.equal(all.length, 3);
+  for (const it of all) assert.deepEqual(it.r.warnings, []);
+});
+
+test('afterMidnight: rest check still sees a too-short gap to the previous shift', () => {
+  const all = C.calcAll([
+    shift('2026-11-01', '01:15', '06:30', { afterMidnight: true }),
+    shift('2026-11-02', '12:00', '18:00'),
+  ], S());
+  assert.equal(all[1].r.warnings.some((w) => w.code === 'rest'), true);
+});
+
+test('afterMidnight: hours count in the week and month of the real start day', () => {
+  const all = C.calcAll([shift('2027-01-31', '01:15', '06:30', { afterMidnight: true })], S());
+  const weeks = C.weekTotals(all, S()), months = C.monthTotals(all, S());
+  assert.ok(weeks['2027-W05'] && weeks['2027-W05'].shifts === 1);
+  assert.equal(weeks['2027-W04'], undefined);
+  assert.ok(months['2027-02'] && months['2027-02'].shifts === 1);
+  assert.equal(months['2027-01'], undefined);
+});
+
+test('afterMidnight: dailyBalance books the hours on the real start day', () => {
+  const all = C.calcAll([shift('2026-11-01', '01:15', '06:30', { afterMidnight: true })], S());
+  const pts = C.dailyBalance(all, S(), '2026-11-02');
+  assert.equal(pts.find((p) => p.date === '2026-11-01').worked, 0);
+  assert.equal(pts.find((p) => p.date === '2026-11-02').worked, 4.75);
+});

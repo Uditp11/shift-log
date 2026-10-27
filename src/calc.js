@@ -86,11 +86,18 @@
     return start <= end ? min >= start && min < end : min >= start || min < end;
   }
 
+  // The day a shift really starts. A shift saved under its roster day (e.g. "Sunday") that starts after
+  // midnight carries afterMidnight: true, so it starts on the next calendar day (Monday 01:15).
+  function workDate(shift) {
+    return shift.afterMidnight === true ? addDays(shift.date, 1) : shift.date;
+  }
+
   function shiftBounds(shift) {
     const f = parseHM(shift.from), t = parseHM(shift.till);
     if (f == null || t == null) return null;
-    const startMs = localToUtc(shift.date, f);
-    const endDate = t <= f ? addDays(shift.date, 1) : shift.date;
+    const startDate = workDate(shift);
+    const startMs = localToUtc(startDate, f);
+    const endDate = t <= f ? addDays(startDate, 1) : startDate;
     const endMs = localToUtc(endDate, t);
     return { f, t, startMs, endMs };
   }
@@ -122,16 +129,17 @@
 
     let bs;
     const bsMin = parseHM(shift.breakStart);
+    const startDate = workDate(shift);
     if (bsMin != null) {
-      bs = localToUtc(shift.date, bsMin);
-      if (bs < b.startMs) bs = localToUtc(addDays(shift.date, 1), bsMin);
+      bs = localToUtc(startDate, bsMin);
+      if (bs < b.startMs) bs = localToUtc(addDays(startDate, 1), bsMin);
       if (bs + breakMin * MIN > b.endMs) bs = b.endMs - breakMin * MIN;
     } else {
       bs = b.startMs + Math.floor((spanMin - breakMin) / 2) * MIN;
     }
     const be = bs + breakMin * MIN;
 
-    const rate = rateFor(shift.date, s);
+    const rate = rateFor(startDate, s);
     const pct = { night: +s.nightPct, sunday: +s.sundayPct, holiday: +s.holidayPct, eve: +s.eveAfter14Pct };
     const holidays = new Set(s.holidays || []);
     const eves = new Set(s.eveDates || []);
@@ -223,8 +231,14 @@
     return { year, week, key: year + '-W' + pad(week), monday: dateOfDayNum(monday), sunday: dateOfDayNum(monday + 6) };
   }
 
+  // Sort key: real start day, then roster day (keeps same-day order stable for entries without times).
+  function startKey(shift) { return workDate(shift) + ' ' + shift.date; }
+
   function calcAll(shifts, settings) {
-    const sorted = (shifts || []).filter((x) => x && x.date).slice().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    const sorted = (shifts || []).filter((x) => x && x.date).slice()
+      .map((x) => ({ x, k: startKey(x) }))
+      .sort((a, b) => (a.k < b.k ? -1 : a.k > b.k ? 1 : 0))
+      .map((e) => e.x);
     let prev = null;
     return sorted.map((shift) => {
       const r = calcShift(shift, settings, prev);
@@ -245,7 +259,7 @@
   function aggregate(all, keyFn, settings) {
     const out = {};
     for (const it of all) {
-      const k = keyFn(it.shift.date);
+      const k = keyFn(workDate(it.shift));
       const t = out[k] || (out[k] = emptyTotals(k));
       t.items.push(it);
       const r = it.r;
@@ -304,7 +318,7 @@
   function timeAccount(all, settings, upToYm) {
     const months = monthTotals(all);
     let ym = monthKey(settings.assignmentStart);
-    const lastShift = all.length ? monthKey(all[all.length - 1].shift.date) : ym;
+    const lastShift = all.length ? monthKey(workDate(all[all.length - 1].shift)) : ym;
     let end = upToYm || lastShift;
     if (lastShift > end) end = lastShift;
     const credit = absenceCreditH(settings);
@@ -365,7 +379,8 @@
     const byDate = {};
     for (const it of all) {
       const h = it.r.worked ? it.r.paidH : (it.r.status === 'sick' || it.r.status === 'vacation') ? credit : 0;
-      byDate[it.shift.date] = (byDate[it.shift.date] || 0) + h;
+      const d = workDate(it.shift);
+      byDate[d] = (byDate[d] || 0) + h;
     }
     const out = [];
     let bal = 0;
@@ -403,7 +418,7 @@
 
   return {
     defaultSettings, parseHM, fmtHM, dayNum, dateOfDayNum, addDays, dowOf,
-    localToUtc, utcToLocal, rateFor, calcShift, shiftBounds,
+    localToUtc, utcToLocal, rateFor, calcShift, shiftBounds, workDate,
     isoWeek, calcAll, aggregate, weekTotals, monthTotals, monthKey,
     daysInMonth, nextMonth, monthTarget, fullMonthTarget, absenceCreditH, timeAccountCap, timeAccount, expectedPayslip,
     netEstimate, calibrate, dailyBalance, assignmentDaysIn,
